@@ -1,0 +1,62 @@
+{
+  "name": "@absmartly/angular-sdk",
+  "version": "1.0.0",
+  "homepage": "https://github.com/absmartly/angular-sdk#README.md",
+  "bugs": "https://github.com/absmartly/angular-sdk/issues",
+  "keywords": [
+    "absmartly",
+    "ab-smartly",
+    "a/b-smartly",
+    "ab-testing",
+    "a/b-testing",
+    "split-testing",
+    "ab",
+    "a/b",
+    "cro",
+    "angular"
+  ],
+  "license": "Apache-2.0",
+  "main": "./lib/esm/index.js",
+  "module": "./lib/esm/index.js",
+  "types": "./lib/esm/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.lib.json",
+    "test": "jest --coverage",
+    "format": "prettier --write .",
+    "check-format": "prettier --check ."
+  },
+  "peerDependencies": {
+    "@angular/common": ">=16.0.0",
+    "@angular/core": ">=16.0.0"
+  },
+  "dependencies": {
+    "@absmartly/javascript-sdk": "^1.13.0"
+  },
+  "devDependencies": {
+    "@angular/common": "^18.2.0",
+    "@angular/compiler": "^18.2.0",
+    "@angular/compiler-cli": "^18.2.0",
+    "@angular/core": "^18.2.0",
+    "@angular/platform-browser": "^18.2.0",
+    "@angular/platform-browser-dynamic": "^18.2.0",
+    "@jest/globals": "^29.7.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^25.3.0",
+    "jest": "^29.7.0",
+    "jest-preset-angular": "^14.2.2",
+    "prettier": "3.2.5",
+    "rxjs": "^7.8.0",
+    "ts-jest": "^29.2.0",
+    "typescript": "~5.4.5",
+    "zone.js": "^0.14.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "README.md",
+    "LICENSE",
+    "package.json",
+    "lib"
+  ]
+}
