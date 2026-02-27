@@ -32,7 +32,7 @@ function createMockContext(overrides: Record<string, any> = {}) {
     pending: jest.fn().mockReturnValue(0),
     experiments: jest.fn().mockReturnValue(['exp_test_ab']),
     data: jest.fn().mockReturnValue({ experiments: [] }),
-    _sdk: {},
+    getSDK: jest.fn().mockReturnValue({}),
     ...overrides,
   };
 }
