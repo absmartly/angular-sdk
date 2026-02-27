@@ -1,5 +1,6 @@
 import { Inject, Injectable, OnDestroy, Optional, signal } from '@angular/core';
 import absmartly from '@absmartly/javascript-sdk';
+import { Context, SDK } from '@absmartly/javascript-sdk';
 import {
   ABSMARTLY_CONFIG,
   ABSMARTLY_CONTEXT,
@@ -9,8 +10,8 @@ import {
 
 @Injectable()
 export class ABSmartlyService implements OnDestroy {
-  private sdk!: any;
-  private context!: any;
+  private sdk!: SDK;
+  private context!: Context;
 
   readonly ready = signal(false);
   readonly failed = signal(false);
@@ -19,10 +20,10 @@ export class ABSmartlyService implements OnDestroy {
 
   constructor(
     @Inject(ABSMARTLY_CONFIG) private config: ABSmartlyConfig,
-    @Optional() @Inject(ABSMARTLY_CONTEXT) existingContext: any,
+    @Optional() @Inject(ABSMARTLY_CONTEXT) existingContext: Context | null,
   ) {
     if (existingContext) {
-      this.sdk = (existingContext as any)['_sdk'];
+      this.sdk = existingContext.getSDK();
       this.context = existingContext;
       this.initializeState();
       return;
@@ -103,7 +104,7 @@ export class ABSmartlyService implements OnDestroy {
     this.context.attributes(attrs);
   }
 
-  getAttribute(name: string): undefined {
+  getAttribute(name: string): unknown {
     return this.context.getAttribute(name);
   }
 
