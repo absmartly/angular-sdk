@@ -1,4 +1,5 @@
 import { OnDestroy } from '@angular/core';
+import { Context } from '@absmartly/javascript-sdk';
 import { ABSmartlyConfig, ABSmartlyContextOptions } from './absmartly.types';
 export declare class ABSmartlyService implements OnDestroy {
     private config;
@@ -8,7 +9,7 @@ export declare class ABSmartlyService implements OnDestroy {
     readonly failed: import("@angular/core").WritableSignal<boolean>;
     readonly loading: import("@angular/core").WritableSignal<boolean>;
     readonly error: import("@angular/core").WritableSignal<Error | null>;
-    constructor(config: ABSmartlyConfig, existingContext: any);
+    constructor(config: ABSmartlyConfig, existingContext: Context | null);
     private initializeState;
     treatment(experimentName: string): number;
     peek(experimentName: string): number;
@@ -18,7 +19,7 @@ export declare class ABSmartlyService implements OnDestroy {
     track(goalName: string, properties?: Record<string, unknown>): void;
     attribute(name: string, value: unknown): void;
     attributes(attrs: Record<string, unknown>): void;
-    getAttribute(name: string): undefined;
+    getAttribute(name: string): unknown;
     override(experimentName: string, variant: number): void;
     customAssignment(experimentName: string, variant: number): void;
     customFieldValue(experimentName: string, fieldName: string): unknown;
