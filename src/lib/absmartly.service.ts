@@ -22,22 +22,13 @@ export class ABSmartlyService implements OnDestroy {
     @Inject(ABSMARTLY_CONFIG) private config: ABSmartlyConfig,
     @Optional() @Inject(ABSMARTLY_CONTEXT) existingContext: Context | null,
   ) {
+    this.sdk = this.createSDK(config);
+
     if (existingContext) {
-      this.sdk = existingContext.getSDK();
       this.context = existingContext;
       this.initializeState();
       return;
     }
-
-    this.sdk = new absmartly.SDK({
-      endpoint: config.endpoint,
-      apiKey: config.apiKey,
-      environment: config.environment,
-      application: config.application,
-      retries: config.retries ?? 5,
-      timeout: config.timeout ?? 3000,
-      eventLogger: config.eventLogger,
-    });
 
     this.context = this.sdk.createContext({
       units: config.units,
@@ -46,6 +37,18 @@ export class ABSmartlyService implements OnDestroy {
     } as any);
 
     this.initializeState();
+  }
+
+  private createSDK(config: ABSmartlyConfig): SDK {
+    return new absmartly.SDK({
+      endpoint: config.endpoint,
+      apiKey: config.apiKey,
+      environment: config.environment,
+      application: config.application,
+      retries: config.retries ?? 5,
+      timeout: config.timeout ?? 3000,
+      eventLogger: config.eventLogger,
+    });
   }
 
   private initializeState(): void {
