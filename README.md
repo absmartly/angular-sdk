@@ -80,9 +80,9 @@ provideABSmartly({
 });
 ```
 
-#### Advanced Configuration
+#### With Event Logger
 
-For advanced use cases, you can provide a custom event logger:
+You can provide a custom event logger:
 
 ```typescript
 provideABSmartly({
