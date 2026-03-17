@@ -173,4 +173,70 @@ describe('TreatmentComponent', () => {
     const fixture = createFixture(TestHostComponent);
     expect(fixture.nativeElement.querySelector('.v0')).toBeTruthy();
   });
+
+  it('should match variant by string comparison (normalizing both sides)', () => {
+    mockCtx.treatment.mockReturnValue(1);
+    const fixture = createFixture(TestHostComponent);
+    expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.v1').textContent).toBe('Treatment B');
+  });
+
+  it('should match variant by letter (A=0, B=1)', () => {
+    mockCtx.treatment.mockReturnValue(1);
+
+    @Component({
+      template: `
+        <abs-treatment name="test_exp">
+          <ng-template absTreatmentVariant="A"><span class="vA">Control</span></ng-template>
+          <ng-template absTreatmentVariant="B"><span class="vB">Treatment B</span></ng-template>
+        </abs-treatment>
+      `,
+      standalone: true,
+      imports: [TreatmentComponent, TreatmentVariantDirective],
+    })
+    class TestLetterVariantComponent {}
+
+    const fixture = createFixture(TestLetterVariantComponent);
+    expect(fixture.nativeElement.querySelector('.vB')).toBeTruthy();
+  });
+
+  it('should find nested variant directives with descendants option', () => {
+    mockCtx.treatment.mockReturnValue(1);
+
+    @Component({
+      template: `
+        <abs-treatment name="test_exp">
+          <div>
+            <ng-template absTreatmentVariant="0"><span class="v0">Control</span></ng-template>
+            <ng-template absTreatmentVariant="1"><span class="v1">Treatment</span></ng-template>
+          </div>
+        </abs-treatment>
+      `,
+      standalone: true,
+      imports: [TreatmentComponent, TreatmentVariantDirective],
+    })
+    class TestNestedVariantComponent {}
+
+    const fixture = createFixture(TestNestedVariantComponent);
+    expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.v1').textContent).toBe('Treatment');
+  });
+
+  it('should render correctly when context resolves after ngAfterContentInit', async () => {
+    let resolveFn: () => void;
+    const pendingPromise = new Promise<void>((resolve) => { resolveFn = resolve; });
+    mockCtx.isReady.mockReturnValue(false);
+    mockCtx.ready.mockReturnValue(pendingPromise);
+    mockCtx.treatment.mockReturnValue(1);
+
+    const fixture = createFixture(TestHostComponent);
+
+    expect(fixture.nativeElement.querySelector('.v1')).toBeFalsy();
+
+    resolveFn!();
+    await pendingPromise;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
+  });
 });

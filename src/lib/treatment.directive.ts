@@ -14,6 +14,7 @@ export interface TreatmentContext {
   variant: number;
   variables: Record<string, unknown>;
   loading: boolean;
+  error: boolean;
 }
 
 @Directive({
@@ -46,6 +47,7 @@ export class TreatmentDirective implements OnInit, OnDestroy {
       variant: 0,
       variables: {},
       loading: true,
+      error: false,
     });
 
     context
@@ -57,7 +59,7 @@ export class TreatmentDirective implements OnInit, OnDestroy {
       })
       .catch(() => {
         if (!this.destroyed) {
-          this.render();
+          this.renderError();
         }
       });
   }
@@ -68,8 +70,10 @@ export class TreatmentDirective implements OnInit, OnDestroy {
     const variant = this.absmartly.treatment(this.absTreatment);
     const variableKeysMap = this.absmartly.variableKeys();
     const variables: Record<string, unknown> = {};
-    for (const key of Object.keys(variableKeysMap)) {
-      variables[key] = this.absmartly.peekVariableValue(key, '');
+    for (const [key, experiments] of Object.entries(variableKeysMap)) {
+      if (Array.isArray(experiments) && experiments.includes(this.absTreatment)) {
+        variables[key] = this.absmartly.peekVariableValue(key, null);
+      }
     }
 
     this.viewContainer.createEmbeddedView(this.templateRef, {
@@ -77,6 +81,19 @@ export class TreatmentDirective implements OnInit, OnDestroy {
       variant,
       variables,
       loading: false,
+      error: false,
+    });
+  }
+
+  private renderError(): void {
+    this.viewContainer.clear();
+
+    this.viewContainer.createEmbeddedView(this.templateRef, {
+      $implicit: 0,
+      variant: 0,
+      variables: {},
+      loading: false,
+      error: true,
     });
   }
 
