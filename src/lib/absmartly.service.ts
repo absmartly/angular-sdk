@@ -22,19 +22,22 @@ export class ABSmartlyService implements OnDestroy {
     @Inject(ABSMARTLY_CONFIG) private config: ABSmartlyConfig,
     @Optional() @Inject(ABSMARTLY_CONTEXT) existingContext: Context | null,
   ) {
-    this.sdk = this.createSDK(config);
-
     if (existingContext) {
+      this.sdk = (existingContext as any).getSDK?.() ?? this.createSDK(config);
       this.context = existingContext;
       this.initializeState();
       return;
     }
 
-    this.context = this.sdk.createContext({
-      units: config.units,
-      publishDelay: config.publishDelay ?? -1,
-      refreshPeriod: config.refreshPeriod ?? 0,
-    } as any);
+    this.sdk = this.createSDK(config);
+
+    this.context = this.sdk.createContext(
+      { units: config.units },
+      {
+        publishDelay: config.publishDelay ?? -1,
+        refreshPeriod: config.refreshPeriod ?? 0,
+      },
+    );
 
     this.initializeState();
   }
@@ -83,12 +86,12 @@ export class ABSmartlyService implements OnDestroy {
     return this.context.peek(experimentName) ?? 0;
   }
 
-  variableValue(key: string, defaultValue: string): string {
-    return this.context.variableValue(key, defaultValue);
+  variableValue<T = string>(key: string, defaultValue: T): T {
+    return this.context.variableValue(key, defaultValue as any) as T;
   }
 
-  peekVariableValue(key: string, defaultValue: string): string {
-    return this.context.peekVariableValue(key, defaultValue);
+  peekVariableValue<T = string>(key: string, defaultValue: T): T {
+    return this.context.peekVariableValue(key, defaultValue as any) as T;
   }
 
   variableKeys(): Record<string, unknown[]> {
@@ -161,9 +164,11 @@ export class ABSmartlyService implements OnDestroy {
     try {
       await this.context.ready();
       const contextData = this.context.data();
-      const result = this.context.finalize();
-      if (result !== true) {
-        await result;
+      if (!this.context.isFinalized()) {
+        const result = this.context.finalize();
+        if (result !== true) {
+          await result;
+        }
       }
 
       this.context = this.sdk.createContextWith(
@@ -172,7 +177,7 @@ export class ABSmartlyService implements OnDestroy {
         {
           publishDelay: options?.publishDelay ?? this.config.publishDelay ?? -1,
           refreshPeriod: options?.refreshPeriod ?? this.config.refreshPeriod ?? 0,
-        } as any,
+        },
       );
 
       this.ready.set(this.context.isReady());
@@ -212,11 +217,11 @@ export class ABSmartlyService implements OnDestroy {
     return this.context.data();
   }
 
-  getContext(): any {
+  getContext(): Context {
     return this.context;
   }
 
-  getSDK(): any {
+  getSDK(): SDK {
     return this.sdk;
   }
 

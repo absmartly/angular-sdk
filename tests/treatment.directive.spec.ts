@@ -15,7 +15,7 @@ function createMockContext(overrides: Record<string, any> = {}) {
     peek: jest.fn().mockReturnValue(1),
     variableValue: jest.fn().mockReturnValue('banner-text'),
     peekVariableValue: jest.fn().mockReturnValue('banner-text'),
-    variableKeys: jest.fn().mockReturnValue({ banner: ['exp1'] }),
+    variableKeys: jest.fn().mockReturnValue({ banner: ['test_exp'] }),
     track: jest.fn(),
     attribute: jest.fn(),
     attributes: jest.fn(),
@@ -149,6 +149,75 @@ describe('TreatmentDirective', () => {
 
   it('should call peekVariableValue for variables', () => {
     createFixture(TestHostDirectiveComponent);
-    expect(mockCtx.peekVariableValue).toHaveBeenCalledWith('banner', '');
+    expect(mockCtx.peekVariableValue).toHaveBeenCalledWith('banner', null);
+  });
+
+  it('should only include variables belonging to the specific experiment', () => {
+    mockCtx.variableKeys.mockReturnValue({
+      banner: ['test_exp'],
+      other_var: ['other_exp'],
+      shared_var: ['test_exp', 'other_exp'],
+    });
+    mockCtx.peekVariableValue.mockImplementation((key: string) => `val_${key}`);
+
+    const fixture = createFixture(TestHostDirectiveComponent);
+    fixture.detectChanges();
+
+    expect(mockCtx.peekVariableValue).toHaveBeenCalledWith('banner', null);
+    expect(mockCtx.peekVariableValue).toHaveBeenCalledWith('shared_var', null);
+    expect(mockCtx.peekVariableValue).not.toHaveBeenCalledWith('other_var', null);
+  });
+
+  it('should use null as default for peekVariableValue instead of empty string', () => {
+    mockCtx.variableKeys.mockReturnValue({ myvar: ['test_exp'] });
+    createFixture(TestHostDirectiveComponent);
+    expect(mockCtx.peekVariableValue).toHaveBeenCalledWith('myvar', null);
+  });
+
+  it('should expose error=true in context when context initialization fails', async () => {
+    let rejectFn: (reason: any) => void;
+    const pendingPromise = new Promise<void>((_, reject) => { rejectFn = reject; });
+    mockCtx.isReady.mockReturnValue(false);
+    mockCtx.ready.mockReturnValue(pendingPromise);
+
+    @Component({
+      template: `
+        <div *absTreatment="'test_exp'; let variant; let isError = error; let isLoading = loading">
+          <span class="variant">{{ variant }}</span>
+          <span class="error">{{ isError }}</span>
+          <span class="loading">{{ isLoading }}</span>
+        </div>
+      `,
+      standalone: true,
+      imports: [TreatmentDirective],
+    })
+    class TestErrorComponent {}
+
+    const fixture = createFixture(TestErrorComponent);
+
+    expect(fixture.nativeElement.querySelector('.loading').textContent).toBe('true');
+
+    rejectFn!(new Error('fail'));
+    await pendingPromise.catch(() => {});
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.error').textContent).toBe('true');
+    expect(fixture.nativeElement.querySelector('.loading').textContent).toBe('false');
+  });
+
+  it('should not trigger treatment exposure on error path', async () => {
+    let rejectFn: (reason: any) => void;
+    const pendingPromise = new Promise<void>((_, reject) => { rejectFn = reject; });
+    mockCtx.isReady.mockReturnValue(false);
+    mockCtx.ready.mockReturnValue(pendingPromise);
+
+    const fixture = createFixture(TestHostDirectiveComponent);
+    mockCtx.treatment.mockClear();
+
+    rejectFn!(new Error('fail'));
+    await pendingPromise.catch(() => {});
+    fixture.detectChanges();
+
+    expect(mockCtx.treatment).not.toHaveBeenCalled();
   });
 });

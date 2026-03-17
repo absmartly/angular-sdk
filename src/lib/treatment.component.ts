@@ -24,11 +24,12 @@ export class TreatmentComponent implements OnInit, AfterContentInit, OnDestroy {
   @Input() attributes?: Record<string, unknown>;
   @Input() peek = false;
 
-  @ContentChildren(TreatmentVariantDirective) variants!: QueryList<TreatmentVariantDirective>;
+  @ContentChildren(TreatmentVariantDirective, { descendants: true }) variants!: QueryList<TreatmentVariantDirective>;
   @ViewChild('container', { read: ViewContainerRef, static: true }) container!: ViewContainerRef;
 
   private absmartly = inject(ABSmartlyService);
   private destroyed = false;
+  private contentReady = false;
 
   readonly variant = signal<number>(0);
   readonly loading = signal(true);
@@ -58,11 +59,15 @@ export class TreatmentComponent implements OnInit, AfterContentInit, OnDestroy {
           const err = e instanceof Error ? e : new Error(String(e));
           this.error.set(err);
           this.loading.set(false);
+          if (this.contentReady) {
+            this.renderVariant();
+          }
         }
       });
   }
 
   ngAfterContentInit(): void {
+    this.contentReady = true;
     if (!this.loading()) {
       this.renderVariant();
     }
@@ -75,7 +80,9 @@ export class TreatmentComponent implements OnInit, AfterContentInit, OnDestroy {
     this.variant.set(value);
     this.loading.set(false);
     this.error.set(null);
-    this.renderVariant();
+    if (this.contentReady) {
+      this.renderVariant();
+    }
   }
 
   private renderVariant(): void {
@@ -102,11 +109,11 @@ export class TreatmentComponent implements OnInit, AfterContentInit, OnDestroy {
     }
 
     const currentVariant = this.variant();
+    const variantStr = String(currentVariant);
     const variantLetter = String.fromCharCode(65 + currentVariant);
 
     const match =
-      this.variants.find((v) => v.absTreatmentVariant === currentVariant) ??
-      this.variants.find((v) => v.absTreatmentVariant === String(currentVariant)) ??
+      this.variants.find((v) => String(v.absTreatmentVariant) === variantStr) ??
       this.variants.find((v) => v.absTreatmentVariant === variantLetter) ??
       this.variants.find((v) => v.absTreatmentVariant === 'default') ??
       this.variants.first;
