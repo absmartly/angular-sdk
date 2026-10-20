@@ -6,6 +6,8 @@ A/B Smartly - Angular SDK
 
 The A/B Smartly Angular SDK is compatible with Angular 16 and later. It supports both standalone components and NgModule-based architectures. The SDK wraps the [@absmartly/javascript-sdk](https://www.github.com/absmartly/javascript-sdk) and provides Angular-native services, components, and directives for seamless integration with Angular's dependency injection system.
 
+The examples below use Angular's built-in control flow (`@if`), which requires Angular 17 or later. On Angular 16, use the equivalent `*ngIf` (for example `<p *ngIf="absmartly.loading()">Loading experiments...</p>`).
+
 ## Installation
 
 #### npm
@@ -401,10 +403,10 @@ provideABSmartly({
   eventLogger: (context, eventName, data) => {
     switch (eventName) {
       case 'exposure':
-        console.log('Exposed to experiment:', data.name);
+        console.log('Exposed to experiment:', (data as { name: string }).name);
         break;
       case 'goal':
-        console.log('Goal tracked:', data.name);
+        console.log('Goal tracked:', (data as { name: string }).name);
         break;
       case 'error':
         console.error('SDK error:', data);

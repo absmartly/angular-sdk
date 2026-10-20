@@ -1,12 +1,12 @@
 # Angular SDK Fix Plan
 
-Based on full review of PR #1.
+Based on full review of PR #9.
 
 ## Critical
 
 ### 1. Remove node_modules from git history
 - **Issue**: Initial commit included 16,788 node_modules files (~136MB). Later commit stopped tracking but files remain in history.
-- **Fix**: Either squash all commits into one clean commit (preferred for a new repo), or use `git filter-branch` / `git filter-repo` to purge node_modules from history. Since this is PR #1, squashing is cleanest.
+- **Fix**: Either squash all commits into one clean commit (preferred for a new repo), or use `git filter-branch` / `git filter-repo` to purge node_modules from history. Since this is PR #9, squashing is cleanest.
 
 ### 2. Reconcile source/build output mismatch
 - **File**: `src/lib/absmartly.service.ts:25` vs `lib/esm/lib/absmartly.service.js:20-21`
