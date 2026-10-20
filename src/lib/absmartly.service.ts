@@ -23,7 +23,7 @@ export class ABSmartlyService implements OnDestroy {
     @Optional() @Inject(ABSMARTLY_CONTEXT) existingContext: Context | null,
   ) {
     if (existingContext) {
-      this.sdk = (existingContext as any).getSDK?.() ?? this.createSDK(config);
+      this.sdk = this.resolveOwningSDK(existingContext) ?? this.createSDK(config);
       this.context = existingContext;
       this.initializeState();
       return;
@@ -40,6 +40,11 @@ export class ABSmartlyService implements OnDestroy {
     );
 
     this.initializeState();
+  }
+
+  private resolveOwningSDK(context: Context): SDK | undefined {
+    const ctx = context as any;
+    return ctx.getSDK?.() ?? ctx._sdk ?? undefined;
   }
 
   private createSDK(config: ABSmartlyConfig): SDK {
