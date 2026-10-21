@@ -67,6 +67,11 @@ export class TreatmentDirective implements OnInit, OnDestroy {
   private render(): void {
     this.viewContainer.clear();
 
+    if (this.absmartly.getContext().isFailed()) {
+      this.renderError();
+      return;
+    }
+
     const variant = this.absmartly.treatment(this.absTreatment);
     const variableKeysMap = this.absmartly.variableKeys();
     const variables: Record<string, unknown> = {};

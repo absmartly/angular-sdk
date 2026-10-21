@@ -59,28 +59,48 @@ export class ABSmartlyService implements OnDestroy {
     });
   }
 
+  // JS Context.ready() resolves (never rejects) even when the initial fetch
+  // failed; failure is only visible through isFailed()/readyError(). The
+  // readyError() accessor is absent from the 1.13.x releases this package
+  // allows, so it is optional here.
+  private failureOf(context: Context): Error | null {
+    if (!context.isFailed()) {
+      return null;
+    }
+    const e = (context as any).readyError?.();
+    if (e instanceof Error) {
+      return e;
+    }
+    return new Error(e ? String(e) : 'ABsmartly Context failed to initialize.');
+  }
+
   private initializeState(): void {
-    if (this.context.isReady()) {
+    const context = this.context;
+    const apply = (): void => {
+      // A reset replaced the context while this one was still loading.
+      if (context !== this.context) {
+        return;
+      }
+      const failure = this.failureOf(context);
       this.ready.set(true);
-      this.failed.set(this.context.isFailed());
+      this.failed.set(failure !== null);
+      this.error.set(failure);
       this.loading.set(false);
+    };
+
+    if (context.isReady()) {
+      apply();
       return;
     }
 
-    this.context
-      .ready()
-      .then(() => {
-        this.ready.set(true);
-        this.failed.set(this.context.isFailed());
-        this.loading.set(false);
-        this.error.set(null);
-      })
-      .catch((e: unknown) => {
-        const err = e instanceof Error ? e : new Error(String(e));
-        this.error.set(err);
-        this.failed.set(true);
-        this.loading.set(false);
-      });
+    context.ready().then(apply, (e: unknown) => {
+      if (context !== this.context) {
+        return;
+      }
+      this.error.set(e instanceof Error ? e : new Error(String(e)));
+      this.failed.set(true);
+      this.loading.set(false);
+    });
   }
 
   treatment(experimentName: string): number {

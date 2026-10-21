@@ -481,5 +481,66 @@ describe('ABSmartlyService', () => {
       expect(svc.failed()).toBe(true);
       expect(svc.loading()).toBe(false);
     });
+
+    it('should detect failure from isFailed()/readyError() when ready() resolves', async () => {
+      const testError = new Error('Connection failed');
+      let resolveReady!: (v: boolean) => void;
+      const failed = { value: false };
+      const failCtx = createMockContext({
+        isReady: jest.fn().mockReturnValue(false),
+        isFailed: jest.fn().mockImplementation(() => failed.value),
+        readyError: jest.fn().mockReturnValue(testError),
+        ready: jest.fn().mockReturnValue(new Promise<boolean>((r) => (resolveReady = r))),
+      });
+
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          { provide: ABSMARTLY_CONTEXT, useValue: failCtx },
+          ABSmartlyService,
+        ],
+      });
+
+      const svc = TestBed.inject(ABSmartlyService);
+      failed.value = true;
+      resolveReady(true);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(svc.failed()).toBe(true);
+      expect(svc.error()).toBe(testError);
+      expect(svc.loading()).toBe(false);
+    });
+
+    it('should ignore a stale ready() completion after resetContext replaced the context', async () => {
+      let resolveOld!: (v: boolean) => void;
+      const oldCtx = createMockContext({
+        isReady: jest.fn().mockReturnValue(false),
+        isFailed: jest.fn().mockReturnValue(true),
+        readyError: jest.fn().mockReturnValue(new Error('old')),
+        ready: jest.fn().mockReturnValue(new Promise<boolean>((r) => (resolveOld = r))),
+      });
+
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          { provide: ABSMARTLY_CONTEXT, useValue: oldCtx },
+          ABSmartlyService,
+        ],
+      });
+
+      const svc = TestBed.inject(ABSmartlyService);
+      const newCtx = createMockContext({ isReady: jest.fn().mockReturnValue(true) });
+      (svc as any).context = newCtx;
+      svc.failed.set(false);
+      svc.error.set(null);
+
+      resolveOld(true);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(svc.failed()).toBe(false);
+      expect(svc.error()).toBeNull();
+    });
   });
 });

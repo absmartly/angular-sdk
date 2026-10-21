@@ -220,4 +220,30 @@ describe('TreatmentDirective', () => {
 
     expect(mockCtx.treatment).not.toHaveBeenCalled();
   });
+
+  it('should render the error state when ready() resolves on a failed context', async () => {
+    mockCtx.isReady.mockReturnValue(false);
+    mockCtx.ready.mockResolvedValue(true);
+    mockCtx.isFailed.mockReturnValue(true);
+
+    @Component({
+      template: `
+        <div *absTreatment="'test_exp'; let isError = error">
+          <span class="error">{{ isError }}</span>
+        </div>
+      `,
+      standalone: true,
+      imports: [TreatmentDirective],
+    })
+    class TestResolvedFailureComponent {}
+
+    const fixture = createFixture(TestResolvedFailureComponent);
+    mockCtx.treatment.mockClear();
+    await Promise.resolve();
+    await Promise.resolve();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.error').textContent).toBe('true');
+    expect(mockCtx.treatment).not.toHaveBeenCalled();
+  });
 });
