@@ -21,6 +21,7 @@
   "types": "./lib/esm/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.lib.json",
+    "prepack": "npm run build",
     "test": "jest --coverage",
     "format": "prettier --write .",
     "check-format": "prettier --check ."

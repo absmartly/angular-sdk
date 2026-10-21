@@ -32,7 +32,7 @@ function createMockContext(overrides: Record<string, any> = {}) {
     pending: jest.fn().mockReturnValue(0),
     experiments: jest.fn().mockReturnValue(['exp_test_ab']),
     data: jest.fn().mockReturnValue({ experiments: [] }),
-    _sdk: {},
+    getSDK: jest.fn().mockReturnValue({}),
     ...overrides,
   };
 }
@@ -274,6 +274,167 @@ describe('ABSmartlyService', () => {
       expect(svc.getContext()).toBe(existingCtx);
       expect(svc.ready()).toBe(true);
     });
+
+    it('should use SDK from existing context instead of creating a new one', () => {
+      const existingSDK = { createContext: jest.fn(), createContextWith: jest.fn() };
+      const existingCtx = createMockContext({
+        getSDK: jest.fn().mockReturnValue(existingSDK),
+      });
+
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          { provide: ABSMARTLY_CONTEXT, useValue: existingCtx },
+          ABSmartlyService,
+        ],
+      });
+
+      const svc = TestBed.inject(ABSmartlyService);
+      expect(existingCtx.getSDK).toHaveBeenCalled();
+      expect(svc.getSDK()).toBe(existingSDK);
+    });
+
+    it('should not create a new SDK when existing context is provided', () => {
+      const absmartly = require('@absmartly/javascript-sdk').default;
+      const existingCtx = createMockContext();
+
+      absmartly.SDK.mockClear();
+
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          { provide: ABSMARTLY_CONTEXT, useValue: existingCtx },
+          ABSmartlyService,
+        ],
+      });
+
+      TestBed.inject(ABSmartlyService);
+      expect(absmartly.SDK).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createContext params/options separation', () => {
+    it('should pass units as params and publishDelay/refreshPeriod as options', () => {
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: { ...defaultConfig, publishDelay: 100, refreshPeriod: 200 } },
+          ABSmartlyService,
+        ],
+      });
+
+      TestBed.inject(ABSmartlyService);
+      expect(mockSDK.createContext).toHaveBeenCalledWith(
+        { units: { session_id: 'test-session' } },
+        { publishDelay: 100, refreshPeriod: 200 },
+      );
+    });
+
+    it('should use default publishDelay and refreshPeriod when not configured', () => {
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          ABSmartlyService,
+        ],
+      });
+
+      TestBed.inject(ABSmartlyService);
+      expect(mockSDK.createContext).toHaveBeenCalledWith(
+        { units: { session_id: 'test-session' } },
+        { publishDelay: -1, refreshPeriod: 0 },
+      );
+    });
+  });
+
+  describe('generic variableValue/peekVariableValue', () => {
+    let service: ABSmartlyService;
+
+    beforeEach(() => {
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          ABSmartlyService,
+        ],
+      });
+      service = TestBed.inject(ABSmartlyService);
+    });
+
+    it('should accept number default value for variableValue', () => {
+      mockCtx.variableValue.mockReturnValue(42);
+      const result = service.variableValue('count', 0);
+      expect(result).toBe(42);
+      expect(mockCtx.variableValue).toHaveBeenCalledWith('count', 0);
+    });
+
+    it('should accept boolean default value for variableValue', () => {
+      mockCtx.variableValue.mockReturnValue(true);
+      const result = service.variableValue('enabled', false);
+      expect(result).toBe(true);
+      expect(mockCtx.variableValue).toHaveBeenCalledWith('enabled', false);
+    });
+
+    it('should accept number default value for peekVariableValue', () => {
+      mockCtx.peekVariableValue.mockReturnValue(99);
+      const result = service.peekVariableValue('price', 0);
+      expect(result).toBe(99);
+      expect(mockCtx.peekVariableValue).toHaveBeenCalledWith('price', 0);
+    });
+  });
+
+  describe('getContext/getSDK return types', () => {
+    it('should return the context instance from getContext', () => {
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          ABSmartlyService,
+        ],
+      });
+      const svc = TestBed.inject(ABSmartlyService);
+      expect(svc.getContext()).toBe(mockCtx);
+    });
+
+    it('should return the sdk instance from getSDK', () => {
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          ABSmartlyService,
+        ],
+      });
+      const svc = TestBed.inject(ABSmartlyService);
+      expect(svc.getSDK()).toBe(mockSDK);
+    });
+  });
+
+  describe('resetContext finalized guard', () => {
+    let service: ABSmartlyService;
+
+    beforeEach(() => {
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          ABSmartlyService,
+        ],
+      });
+      service = TestBed.inject(ABSmartlyService);
+    });
+
+    it('should skip finalize in resetContext if context is already finalized', async () => {
+      mockCtx.isFinalized.mockReturnValue(true);
+      mockCtx.finalize.mockClear();
+
+      await service.resetContext({ user_id: 'new-user' });
+
+      expect(mockCtx.finalize).not.toHaveBeenCalled();
+      expect(mockSDK.createContextWith).toHaveBeenCalled();
+    });
+
+    it('should finalize in resetContext if context is not finalized', async () => {
+      mockCtx.isFinalized.mockReturnValue(false);
+      mockCtx.finalize.mockClear();
+
+      await service.resetContext({ user_id: 'new-user' });
+
+      expect(mockCtx.finalize).toHaveBeenCalled();
+    });
   });
 
   describe('with async context (not ready)', () => {
@@ -313,14 +474,73 @@ describe('ABSmartlyService', () => {
         ],
       });
 
-      TestBed.inject(ABSmartlyService);
-
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       const svc = TestBed.inject(ABSmartlyService);
+
+      await failCtx.ready().catch(() => {});
       expect(svc.error()).toEqual(testError);
       expect(svc.failed()).toBe(true);
       expect(svc.loading()).toBe(false);
+    });
+
+    it('should detect failure from isFailed()/readyError() when ready() resolves', async () => {
+      const testError = new Error('Connection failed');
+      let resolveReady!: (v: boolean) => void;
+      const failed = { value: false };
+      const failCtx = createMockContext({
+        isReady: jest.fn().mockReturnValue(false),
+        isFailed: jest.fn().mockImplementation(() => failed.value),
+        readyError: jest.fn().mockReturnValue(testError),
+        ready: jest.fn().mockReturnValue(new Promise<boolean>((r) => (resolveReady = r))),
+      });
+
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          { provide: ABSMARTLY_CONTEXT, useValue: failCtx },
+          ABSmartlyService,
+        ],
+      });
+
+      const svc = TestBed.inject(ABSmartlyService);
+      failed.value = true;
+      resolveReady(true);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(svc.failed()).toBe(true);
+      expect(svc.error()).toBe(testError);
+      expect(svc.loading()).toBe(false);
+    });
+
+    it('should ignore a stale ready() completion after resetContext replaced the context', async () => {
+      let resolveOld!: (v: boolean) => void;
+      const oldCtx = createMockContext({
+        isReady: jest.fn().mockReturnValue(false),
+        isFailed: jest.fn().mockReturnValue(true),
+        readyError: jest.fn().mockReturnValue(new Error('old')),
+        ready: jest.fn().mockReturnValue(new Promise<boolean>((r) => (resolveOld = r))),
+      });
+
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
+          { provide: ABSMARTLY_CONTEXT, useValue: oldCtx },
+          ABSmartlyService,
+        ],
+      });
+
+      const svc = TestBed.inject(ABSmartlyService);
+      const newCtx = createMockContext({ isReady: jest.fn().mockReturnValue(true) });
+      (svc as any).context = newCtx;
+      svc.failed.set(false);
+      svc.error.set(null);
+
+      resolveOld(true);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(svc.failed()).toBe(false);
+      expect(svc.error()).toBeNull();
     });
   });
 });
