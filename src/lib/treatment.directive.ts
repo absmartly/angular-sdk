@@ -7,7 +7,7 @@ import {
   ViewContainerRef,
   inject,
 } from '@angular/core';
-import { ABSmartlyService } from './absmartly.service';
+import { ABSmartlyService } from './absmartly.service.js';
 
 export interface TreatmentContext {
   $implicit: number;
@@ -66,11 +66,6 @@ export class TreatmentDirective implements OnInit, OnDestroy {
 
   private render(): void {
     this.viewContainer.clear();
-
-    if (this.absmartly.getContext().isFailed()) {
-      this.renderError();
-      return;
-    }
 
     const variant = this.absmartly.treatment(this.absTreatment);
     const variableKeysMap = this.absmartly.variableKeys();

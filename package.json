@@ -20,7 +20,7 @@
   "module": "./lib/esm/index.js",
   "types": "./lib/esm/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.lib.json",
+    "build": "tsc -p tsconfig.lib.json && node -e \"require('fs').writeFileSync('lib/esm/package.json', '{\\\"type\\\":\\\"module\\\"}')\"",
     "prepack": "npm run build",
     "test": "jest --coverage",
     "format": "prettier --write .",

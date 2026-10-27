@@ -221,7 +221,7 @@ describe('TreatmentDirective', () => {
     expect(mockCtx.treatment).not.toHaveBeenCalled();
   });
 
-  it('should render the error state when ready() resolves on a failed context', async () => {
+  it('serves the SDK treatment, not an error, when the initial load failed', async () => {
     mockCtx.isReady.mockReturnValue(false);
     mockCtx.ready.mockResolvedValue(true);
     mockCtx.isFailed.mockReturnValue(true);
@@ -243,7 +243,8 @@ describe('TreatmentDirective', () => {
     await Promise.resolve();
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.error').textContent).toBe('true');
-    expect(mockCtx.treatment).not.toHaveBeenCalled();
+    // Like the JavaScript SDK, a failed context is ready and serves control.
+    expect(fixture.nativeElement.querySelector('.error').textContent).toBe('false');
+    expect(mockCtx.treatment).toHaveBeenCalledWith('test_exp');
   });
 });

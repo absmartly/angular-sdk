@@ -11,8 +11,8 @@ import {
   signal,
   type AfterContentInit,
 } from '@angular/core';
-import { ABSmartlyService } from './absmartly.service';
-import { TreatmentVariantDirective } from './treatment-variant.directive';
+import { ABSmartlyService } from './absmartly.service.js';
+import { TreatmentVariantDirective } from './treatment-variant.directive.js';
 
 @Component({
   selector: 'abs-treatment',
@@ -68,23 +68,10 @@ export class TreatmentComponent implements OnInit, AfterContentInit, OnDestroy {
 
   ngAfterContentInit(): void {
     this.contentReady = true;
-    if (!this.loading()) {
-      this.renderVariant();
-    }
+    this.renderVariant();
   }
 
   private resolveVariant(): void {
-    const context = this.absmartly.getContext();
-    if (context.isFailed()) {
-      // ready() resolves on failure; surface it through the error state.
-      this.variant.set(0);
-      this.loading.set(false);
-      this.error.set(new Error('ABsmartly Context failed to initialize.'));
-      if (this.contentReady) {
-        this.renderVariant();
-      }
-      return;
-    }
     const value = this.peek
       ? this.absmartly.peek(this.name)
       : this.absmartly.treatment(this.name);

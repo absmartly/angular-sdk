@@ -73,6 +73,19 @@ class TestHostComponent {}
 @Component({
   template: `
     <abs-treatment name="test_exp">
+      <ng-template absTreatmentVariant="loading"><span class="loading">Loading</span></ng-template>
+      <ng-template absTreatmentVariant="0"><span class="v0">Control</span></ng-template>
+      <ng-template absTreatmentVariant="1"><span class="v1">Treatment B</span></ng-template>
+    </abs-treatment>
+  `,
+  standalone: true,
+  imports: [TreatmentComponent, TreatmentVariantDirective],
+})
+class TestHostLoadingComponent {}
+
+@Component({
+  template: `
+    <abs-treatment name="test_exp">
       <ng-template absTreatmentVariant="0"><span class="v0">Control</span></ng-template>
       <ng-template absTreatmentVariant="default"><span class="default">Default</span></ng-template>
     </abs-treatment>
@@ -238,5 +251,39 @@ describe('TreatmentComponent', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
+  });
+
+  it('renders the loading template while the context is not ready, then the variant', async () => {
+    let resolveFn: () => void;
+    const pendingPromise = new Promise<void>((r) => { resolveFn = r; });
+    mockCtx.isReady.mockReturnValue(false);
+    mockCtx.ready.mockReturnValue(pendingPromise);
+    mockCtx.treatment.mockReturnValue(1);
+
+    const fixture = createFixture(TestHostLoadingComponent);
+
+    expect(fixture.nativeElement.querySelector('.loading')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.v0')).toBeFalsy();
+    expect(mockCtx.treatment).not.toHaveBeenCalled();
+
+    mockCtx.isReady.mockReturnValue(true);
+    resolveFn!();
+    await pendingPromise;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.loading')).toBeFalsy();
+    expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
+  });
+
+  it('renders the SDK treatment, not an error, when the initial load failed', async () => {
+    // Like the JavaScript SDK, a failed context is ready and serves control.
+    mockCtx.isReady.mockReturnValue(true);
+    mockCtx.isFailed.mockReturnValue(true);
+    mockCtx.treatment.mockReturnValue(0);
+
+    const fixture = createFixture(TestHostComponent);
+
+    expect(mockCtx.treatment).toHaveBeenCalledWith('test_exp');
+    expect(fixture.nativeElement.querySelector('.v0')).toBeTruthy();
   });
 });

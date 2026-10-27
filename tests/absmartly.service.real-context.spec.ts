@@ -48,4 +48,43 @@ describe('ABSmartlyService with a real injected SDK context', () => {
     expect(fresh._dataProvider).toBe(dataProvider);
     expect(fresh._eventLogger).toBe(eventLogger);
   });
+
+  it('does not finalize an injected context when the injector is destroyed', () => {
+    const sdk = new absmartly.SDK({
+      endpoint: 'http://localhost', apiKey: 'key', environment: 'test', application: 'app',
+      publisher: { publish: jest.fn().mockResolvedValue(undefined) },
+    } as any);
+    const injected = sdk.createContextWith({ units: { session_id: 'a' } }, { experiments: [] });
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ABSMARTLY_CONFIG, useValue: { endpoint: 'x', apiKey: 'x', environment: 'x', application: 'x', units: {} } },
+        { provide: ABSMARTLY_CONTEXT, useValue: injected },
+        ABSmartlyService,
+      ],
+    });
+    TestBed.inject(ABSmartlyService);
+    TestBed.resetTestingModule();
+    expect(injected.isFinalized()).toBe(false);
+    expect(injected.isFinalizing()).toBe(false);
+  });
+
+  it('finalizes a context it created by resetContext when the injector is destroyed', async () => {
+    const sdk = new absmartly.SDK({
+      endpoint: 'http://localhost', apiKey: 'key', environment: 'test', application: 'app',
+      publisher: { publish: jest.fn().mockResolvedValue(undefined) },
+    } as any);
+    const injected = sdk.createContextWith({ units: { session_id: 'a' } }, { experiments: [] });
+    TestBed.configureTestingModule({
+      providers: [
+        { provide: ABSMARTLY_CONFIG, useValue: { endpoint: 'x', apiKey: 'x', environment: 'x', application: 'x', units: {} } },
+        { provide: ABSMARTLY_CONTEXT, useValue: injected },
+        ABSmartlyService,
+      ],
+    });
+    const svc = TestBed.inject(ABSmartlyService);
+    await svc.resetContext({ session_id: 'b' });
+    const created = svc.getContext();
+    TestBed.resetTestingModule();
+    expect(created.isFinalizing() || created.isFinalized()).toBe(true);
+  });
 });

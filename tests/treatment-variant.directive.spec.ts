@@ -70,3 +70,11 @@ describe('TreatmentVariantDirective', () => {
     expect(fixture.componentInstance.directive.templateRef).toBeTruthy();
   });
 });
+
+describe('TreatmentVariantDirective without decorator metadata', () => {
+  it('takes no constructor parameters, so the published tsc build is injectable', () => {
+    // The library is built by plain tsc without emitDecoratorMetadata; a
+    // constructor parameter there cannot be resolved by an app at runtime.
+    expect(TreatmentVariantDirective.length).toBe(0);
+  });
+});

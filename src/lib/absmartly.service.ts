@@ -6,12 +6,15 @@ import {
   ABSMARTLY_CONTEXT,
   ABSmartlyConfig,
   ABSmartlyContextOptions,
-} from './absmartly.types';
+} from './absmartly.types.js';
 
 @Injectable()
 export class ABSmartlyService implements OnDestroy {
   private sdk!: SDK;
   private context!: Context;
+  // A context handed in through ABSMARTLY_CONTEXT belongs to the caller; the
+  // service only finalizes contexts it created itself.
+  private ownsContext = true;
 
   readonly ready = signal(false);
   readonly failed = signal(false);
@@ -25,6 +28,7 @@ export class ABSmartlyService implements OnDestroy {
     if (existingContext) {
       this.sdk = this.resolveOwningSDK(existingContext) ?? this.createSDK(config);
       this.context = existingContext;
+      this.ownsContext = false;
       this.initializeState();
       return;
     }
@@ -172,10 +176,7 @@ export class ABSmartlyService implements OnDestroy {
   }
 
   async finalize(): Promise<void> {
-    const result = this.context.finalize();
-    if (result !== true) {
-      await result;
-    }
+    await this.context.finalize();
   }
 
   async refresh(): Promise<void> {
@@ -190,10 +191,7 @@ export class ABSmartlyService implements OnDestroy {
       await this.context.ready();
       const contextData = this.context.data();
       if (!this.context.isFinalized()) {
-        const result = this.context.finalize();
-        if (result !== true) {
-          await result;
-        }
+        await this.context.finalize();
       }
 
       this.context = this.sdk.createContextWith(
@@ -205,6 +203,7 @@ export class ABSmartlyService implements OnDestroy {
         },
       );
 
+      this.ownsContext = true;
       this.ready.set(this.context.isReady());
       this.failed.set(false);
       this.loading.set(!this.context.isReady());
@@ -251,11 +250,8 @@ export class ABSmartlyService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (!this.context.isFinalized()) {
-      const result = this.context.finalize();
-      if (result !== true) {
-        result.catch(() => {});
-      }
+    if (this.ownsContext && !this.context.isFinalized()) {
+      Promise.resolve(this.context.finalize()).catch(() => {});
     }
   }
 }
