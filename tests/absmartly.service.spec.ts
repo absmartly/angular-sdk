@@ -1,7 +1,10 @@
-import { TestBed } from '@angular/core/testing';
-import { ABSmartlyService } from '../src/lib/absmartly.service';
-import { ABSMARTLY_CONFIG, ABSMARTLY_CONTEXT } from '../src/lib/absmartly.types';
-import type { ABSmartlyConfig } from '../src/lib/absmartly.types';
+import { TestBed } from "@angular/core/testing";
+import { ABSmartlyService } from "../src/lib/absmartly.service";
+import {
+  ABSMARTLY_CONFIG,
+  ABSMARTLY_CONTEXT,
+} from "../src/lib/absmartly.types";
+import type { ABSmartlyConfig } from "../src/lib/absmartly.types";
 
 function createMockContext(overrides: Record<string, any> = {}) {
   return {
@@ -12,32 +15,32 @@ function createMockContext(overrides: Record<string, any> = {}) {
     ready: jest.fn().mockResolvedValue(undefined),
     treatment: jest.fn().mockReturnValue(1),
     peek: jest.fn().mockReturnValue(1),
-    variableValue: jest.fn().mockReturnValue('test-value'),
-    peekVariableValue: jest.fn().mockReturnValue('peek-value'),
-    variableKeys: jest.fn().mockReturnValue({ key1: ['exp1'] }),
+    variableValue: jest.fn().mockReturnValue("test-value"),
+    peekVariableValue: jest.fn().mockReturnValue("peek-value"),
+    variableKeys: jest.fn().mockReturnValue({ key1: ["exp1"] }),
     track: jest.fn(),
     attribute: jest.fn(),
     attributes: jest.fn(),
     getAttribute: jest.fn().mockReturnValue(undefined),
     override: jest.fn(),
     customAssignment: jest.fn(),
-    customFieldValue: jest.fn().mockReturnValue('field-value'),
-    customFieldKeys: jest.fn().mockReturnValue(['field1', 'field2']),
-    customFieldValueType: jest.fn().mockReturnValue('string'),
+    customFieldValue: jest.fn().mockReturnValue("field-value"),
+    customFieldKeys: jest.fn().mockReturnValue(["field1", "field2"]),
+    customFieldValueType: jest.fn().mockReturnValue("string"),
     unit: jest.fn(),
-    getUnit: jest.fn().mockReturnValue('user-123'),
+    getUnit: jest.fn().mockReturnValue("user-123"),
     publish: jest.fn().mockResolvedValue(undefined),
     finalize: jest.fn().mockResolvedValue(undefined),
     refresh: jest.fn().mockResolvedValue(undefined),
     pending: jest.fn().mockReturnValue(0),
-    experiments: jest.fn().mockReturnValue(['exp_test_ab']),
+    experiments: jest.fn().mockReturnValue(["exp_test_ab"]),
     data: jest.fn().mockReturnValue({ experiments: [] }),
     getSDK: jest.fn().mockReturnValue({}),
     ...overrides,
   };
 }
 
-jest.mock('@absmartly/javascript-sdk', () => {
+jest.mock("@absmartly/javascript-sdk", () => {
   class Context {}
   return {
     __esModule: true,
@@ -51,14 +54,14 @@ jest.mock('@absmartly/javascript-sdk', () => {
 });
 
 const defaultConfig: ABSmartlyConfig = {
-  endpoint: 'http://test-endpoint',
-  apiKey: 'test-api-key',
-  environment: 'test',
-  application: 'test-app',
-  units: { session_id: 'test-session' },
+  endpoint: "http://test-endpoint",
+  apiKey: "test-api-key",
+  environment: "test",
+  application: "test-app",
+  units: { session_id: "test-session" },
 };
 
-describe('ABSmartlyService', () => {
+describe("ABSmartlyService", () => {
   let mockCtx: any;
   let mockSDK: any;
 
@@ -69,7 +72,7 @@ describe('ABSmartlyService', () => {
       createContextWith: jest.fn().mockReturnValue(mockCtx),
     };
 
-    const absmartly = require('@absmartly/javascript-sdk').default;
+    const absmartly = require("@absmartly/javascript-sdk").default;
     absmartly.SDK.mockImplementation(() => mockSDK);
   });
 
@@ -78,7 +81,7 @@ describe('ABSmartlyService', () => {
     jest.clearAllMocks();
   });
 
-  describe('with config (no existing context)', () => {
+  describe("with config (no existing context)", () => {
     let service: ABSmartlyService;
 
     beforeEach(() => {
@@ -91,166 +94,169 @@ describe('ABSmartlyService', () => {
       service = TestBed.inject(ABSmartlyService);
     });
 
-    it('should be created', () => {
+    it("should be created", () => {
       expect(service).toBeTruthy();
     });
 
-    it('should set ready signal when context is ready', () => {
+    it("should set ready signal when context is ready", () => {
       expect(service.ready()).toBe(true);
     });
 
-    it('should set loading to false when context is ready', () => {
+    it("should set loading to false when context is ready", () => {
       expect(service.loading()).toBe(false);
     });
 
-    it('should have no error when context is ready', () => {
+    it("should have no error when context is ready", () => {
       expect(service.error()).toBeNull();
     });
 
-    it('should delegate treatment() to context', () => {
-      const result = service.treatment('exp_test');
+    it("should delegate treatment() to context", () => {
+      const result = service.treatment("exp_test");
       expect(result).toBe(1);
-      expect(mockCtx.treatment).toHaveBeenCalledWith('exp_test');
+      expect(mockCtx.treatment).toHaveBeenCalledWith("exp_test");
     });
 
-    it('should delegate peek() to context', () => {
-      const result = service.peek('exp_test');
+    it("should delegate peek() to context", () => {
+      const result = service.peek("exp_test");
       expect(result).toBe(1);
-      expect(mockCtx.peek).toHaveBeenCalledWith('exp_test');
+      expect(mockCtx.peek).toHaveBeenCalledWith("exp_test");
     });
 
-    it('should delegate variableValue() to context', () => {
-      const result = service.variableValue('key1', 'default');
-      expect(result).toBe('test-value');
-      expect(mockCtx.variableValue).toHaveBeenCalledWith('key1', 'default');
+    it("should delegate variableValue() to context", () => {
+      const result = service.variableValue("key1", "default");
+      expect(result).toBe("test-value");
+      expect(mockCtx.variableValue).toHaveBeenCalledWith("key1", "default");
     });
 
-    it('should delegate peekVariableValue() to context', () => {
-      const result = service.peekVariableValue('key1', 'default');
-      expect(result).toBe('peek-value');
-      expect(mockCtx.peekVariableValue).toHaveBeenCalledWith('key1', 'default');
+    it("should delegate peekVariableValue() to context", () => {
+      const result = service.peekVariableValue("key1", "default");
+      expect(result).toBe("peek-value");
+      expect(mockCtx.peekVariableValue).toHaveBeenCalledWith("key1", "default");
     });
 
-    it('should delegate variableKeys() to context', () => {
+    it("should delegate variableKeys() to context", () => {
       const result = service.variableKeys();
-      expect(result).toEqual({ key1: ['exp1'] });
+      expect(result).toEqual({ key1: ["exp1"] });
     });
 
-    it('should delegate track() to context with properties', () => {
-      service.track('purchase', { amount: 99.99 });
-      expect(mockCtx.track).toHaveBeenCalledWith('purchase', { amount: 99.99 });
+    it("should delegate track() to context with properties", () => {
+      service.track("purchase", { amount: 99.99 });
+      expect(mockCtx.track).toHaveBeenCalledWith("purchase", { amount: 99.99 });
     });
 
-    it('should delegate track() to context without properties', () => {
-      service.track('pageview');
-      expect(mockCtx.track).toHaveBeenCalledWith('pageview', undefined);
+    it("should delegate track() to context without properties", () => {
+      service.track("pageview");
+      expect(mockCtx.track).toHaveBeenCalledWith("pageview", undefined);
     });
 
-    it('should delegate attribute() to context', () => {
-      service.attribute('age', 25);
-      expect(mockCtx.attribute).toHaveBeenCalledWith('age', 25);
+    it("should delegate attribute() to context", () => {
+      service.attribute("age", 25);
+      expect(mockCtx.attribute).toHaveBeenCalledWith("age", 25);
     });
 
-    it('should delegate attributes() to context', () => {
-      service.attributes({ age: 25, name: 'test' });
-      expect(mockCtx.attributes).toHaveBeenCalledWith({ age: 25, name: 'test' });
+    it("should delegate attributes() to context", () => {
+      service.attributes({ age: 25, name: "test" });
+      expect(mockCtx.attributes).toHaveBeenCalledWith({
+        age: 25,
+        name: "test",
+      });
     });
 
-    it('should delegate getAttribute() to context', () => {
-      const result = service.getAttribute('age');
+    it("should delegate getAttribute() to context", () => {
+      const result = service.getAttribute("age");
       expect(result).toBeUndefined();
     });
 
-    it('should delegate override() to context', () => {
-      service.override('exp_test', 2);
-      expect(mockCtx.override).toHaveBeenCalledWith('exp_test', 2);
+    it("should delegate override() to context", () => {
+      service.override("exp_test", 2);
+      expect(mockCtx.override).toHaveBeenCalledWith("exp_test", 2);
     });
 
-    it('should delegate customAssignment() to context', () => {
-      service.customAssignment('exp_test', 3);
-      expect(mockCtx.customAssignment).toHaveBeenCalledWith('exp_test', 3);
+    it("should delegate customAssignment() to context", () => {
+      service.customAssignment("exp_test", 3);
+      expect(mockCtx.customAssignment).toHaveBeenCalledWith("exp_test", 3);
     });
 
-    it('should delegate customFieldValue() to context', () => {
-      const result = service.customFieldValue('exp_test', 'field1');
-      expect(result).toBe('field-value');
+    it("should delegate customFieldValue() to context", () => {
+      const result = service.customFieldValue("exp_test", "field1");
+      expect(result).toBe("field-value");
     });
 
-    it('should delegate customFieldKeys() to context', () => {
+    it("should delegate customFieldKeys() to context", () => {
       const result = service.customFieldKeys();
-      expect(result).toEqual(['field1', 'field2']);
+      expect(result).toEqual(["field1", "field2"]);
     });
 
-    it('should delegate customFieldValueType() to context', () => {
-      const result = service.customFieldValueType('exp_test', 'field1');
-      expect(result).toBe('string');
+    it("should delegate customFieldValueType() to context", () => {
+      const result = service.customFieldValueType("exp_test", "field1");
+      expect(result).toBe("string");
     });
 
-    it('should delegate setUnit() to context.unit()', () => {
-      service.setUnit('user_id', 'abc-123');
-      expect(mockCtx.unit).toHaveBeenCalledWith('user_id', 'abc-123');
+    it("should delegate setUnit() to context.unit()", () => {
+      service.setUnit("user_id", "abc-123");
+      expect(mockCtx.unit).toHaveBeenCalledWith("user_id", "abc-123");
     });
 
-    it('should delegate getUnit() to context', () => {
-      const result = service.getUnit('session_id');
-      expect(result).toBe('user-123');
+    it("should delegate getUnit() to context", () => {
+      const result = service.getUnit("session_id");
+      expect(result).toBe("user-123");
     });
 
-    it('should delegate publish() to context', async () => {
+    it("should delegate publish() to context", async () => {
       await service.publish();
       expect(mockCtx.publish).toHaveBeenCalled();
     });
 
-    it('should delegate finalize() to context', async () => {
+    it("should delegate finalize() to context", async () => {
       await service.finalize();
       expect(mockCtx.finalize).toHaveBeenCalled();
     });
 
-    it('should delegate refresh() to context', async () => {
+    it("should delegate refresh() to context", async () => {
       await service.refresh();
       expect(mockCtx.refresh).toHaveBeenCalled();
     });
 
-    it('should delegate isReady() to context', () => {
+    it("should delegate isReady() to context", () => {
       expect(service.isReady()).toBe(true);
     });
 
-    it('should delegate isFailed() to context', () => {
+    it("should delegate isFailed() to context", () => {
       expect(service.isFailed()).toBe(false);
     });
 
-    it('should delegate isFinalized() to context', () => {
+    it("should delegate isFinalized() to context", () => {
       expect(service.isFinalized()).toBe(false);
     });
 
-    it('should delegate pending() to context', () => {
+    it("should delegate pending() to context", () => {
       expect(service.pending()).toBe(0);
     });
 
-    it('should delegate experiments() to context', () => {
-      expect(service.experiments()).toEqual(['exp_test_ab']);
+    it("should delegate experiments() to context", () => {
+      expect(service.experiments()).toEqual(["exp_test_ab"]);
     });
 
-    it('should delegate data() to context', () => {
+    it("should delegate data() to context", () => {
       expect(service.data()).toEqual({ experiments: [] });
     });
 
-    it('should expose getContext()', () => {
+    it("should expose getContext()", () => {
       expect(service.getContext()).toBeTruthy();
     });
 
-    it('should expose getSDK()', () => {
+    it("should expose getSDK()", () => {
       expect(service.getSDK()).toBeTruthy();
     });
 
-    it('should finalize on destroy if not already finalized', () => {
+    it("should finalize on destroy if not already finalized", () => {
       mockCtx.isFinalized.mockReturnValue(false);
       mockCtx.finalize.mockClear();
       service.ngOnDestroy();
       expect(mockCtx.finalize).toHaveBeenCalled();
     });
 
-    it('should not finalize on destroy if already finalized', () => {
+    it("should not finalize on destroy if already finalized", () => {
       mockCtx.isFinalized.mockReturnValue(true);
       mockCtx.finalize.mockClear();
       service.ngOnDestroy();
@@ -258,8 +264,8 @@ describe('ABSmartlyService', () => {
     });
   });
 
-  describe('with existing context', () => {
-    it('should use provided context', () => {
+  describe("with existing context", () => {
+    it("should use provided context", () => {
       const existingCtx = createMockContext();
 
       TestBed.configureTestingModule({
@@ -275,8 +281,11 @@ describe('ABSmartlyService', () => {
       expect(svc.ready()).toBe(true);
     });
 
-    it('should use SDK from existing context instead of creating a new one', () => {
-      const existingSDK = { createContext: jest.fn(), createContextWith: jest.fn() };
+    it("should use SDK from existing context instead of creating a new one", () => {
+      const existingSDK = {
+        createContext: jest.fn(),
+        createContextWith: jest.fn(),
+      };
       const existingCtx = createMockContext({
         getSDK: jest.fn().mockReturnValue(existingSDK),
       });
@@ -294,8 +303,8 @@ describe('ABSmartlyService', () => {
       expect(svc.getSDK()).toBe(existingSDK);
     });
 
-    it('should not create a new SDK when existing context is provided', () => {
-      const absmartly = require('@absmartly/javascript-sdk').default;
+    it("should not create a new SDK when existing context is provided", () => {
+      const absmartly = require("@absmartly/javascript-sdk").default;
       const existingCtx = createMockContext();
 
       absmartly.SDK.mockClear();
@@ -313,23 +322,30 @@ describe('ABSmartlyService', () => {
     });
   });
 
-  describe('createContext params/options separation', () => {
-    it('should pass units as params and publishDelay/refreshPeriod as options', () => {
+  describe("createContext params/options separation", () => {
+    it("should pass units as params and publishDelay/refreshPeriod as options", () => {
       TestBed.configureTestingModule({
         providers: [
-          { provide: ABSMARTLY_CONFIG, useValue: { ...defaultConfig, publishDelay: 100, refreshPeriod: 200 } },
+          {
+            provide: ABSMARTLY_CONFIG,
+            useValue: {
+              ...defaultConfig,
+              publishDelay: 100,
+              refreshPeriod: 200,
+            },
+          },
           ABSmartlyService,
         ],
       });
 
       TestBed.inject(ABSmartlyService);
       expect(mockSDK.createContext).toHaveBeenCalledWith(
-        { units: { session_id: 'test-session' } },
+        { units: { session_id: "test-session" } },
         { publishDelay: 100, refreshPeriod: 200 },
       );
     });
 
-    it('should use default publishDelay and refreshPeriod when not configured', () => {
+    it("should use default publishDelay and refreshPeriod when not configured", () => {
       TestBed.configureTestingModule({
         providers: [
           { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
@@ -339,13 +355,13 @@ describe('ABSmartlyService', () => {
 
       TestBed.inject(ABSmartlyService);
       expect(mockSDK.createContext).toHaveBeenCalledWith(
-        { units: { session_id: 'test-session' } },
+        { units: { session_id: "test-session" } },
         { publishDelay: -1, refreshPeriod: 0 },
       );
     });
   });
 
-  describe('generic variableValue/peekVariableValue', () => {
+  describe("generic variableValue/peekVariableValue", () => {
     let service: ABSmartlyService;
 
     beforeEach(() => {
@@ -358,30 +374,30 @@ describe('ABSmartlyService', () => {
       service = TestBed.inject(ABSmartlyService);
     });
 
-    it('should accept number default value for variableValue', () => {
+    it("should accept number default value for variableValue", () => {
       mockCtx.variableValue.mockReturnValue(42);
-      const result = service.variableValue('count', 0);
+      const result = service.variableValue("count", 0);
       expect(result).toBe(42);
-      expect(mockCtx.variableValue).toHaveBeenCalledWith('count', 0);
+      expect(mockCtx.variableValue).toHaveBeenCalledWith("count", 0);
     });
 
-    it('should accept boolean default value for variableValue', () => {
+    it("should accept boolean default value for variableValue", () => {
       mockCtx.variableValue.mockReturnValue(true);
-      const result = service.variableValue('enabled', false);
+      const result = service.variableValue("enabled", false);
       expect(result).toBe(true);
-      expect(mockCtx.variableValue).toHaveBeenCalledWith('enabled', false);
+      expect(mockCtx.variableValue).toHaveBeenCalledWith("enabled", false);
     });
 
-    it('should accept number default value for peekVariableValue', () => {
+    it("should accept number default value for peekVariableValue", () => {
       mockCtx.peekVariableValue.mockReturnValue(99);
-      const result = service.peekVariableValue('price', 0);
+      const result = service.peekVariableValue("price", 0);
       expect(result).toBe(99);
-      expect(mockCtx.peekVariableValue).toHaveBeenCalledWith('price', 0);
+      expect(mockCtx.peekVariableValue).toHaveBeenCalledWith("price", 0);
     });
   });
 
-  describe('getContext/getSDK return types', () => {
-    it('should return the context instance from getContext', () => {
+  describe("getContext/getSDK return types", () => {
+    it("should return the context instance from getContext", () => {
       TestBed.configureTestingModule({
         providers: [
           { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
@@ -392,7 +408,7 @@ describe('ABSmartlyService', () => {
       expect(svc.getContext()).toBe(mockCtx);
     });
 
-    it('should return the sdk instance from getSDK', () => {
+    it("should return the sdk instance from getSDK", () => {
       TestBed.configureTestingModule({
         providers: [
           { provide: ABSMARTLY_CONFIG, useValue: defaultConfig },
@@ -404,7 +420,7 @@ describe('ABSmartlyService', () => {
     });
   });
 
-  describe('resetContext finalized guard', () => {
+  describe("resetContext finalized guard", () => {
     let service: ABSmartlyService;
 
     beforeEach(() => {
@@ -417,28 +433,28 @@ describe('ABSmartlyService', () => {
       service = TestBed.inject(ABSmartlyService);
     });
 
-    it('should skip finalize in resetContext if context is already finalized', async () => {
+    it("should skip finalize in resetContext if context is already finalized", async () => {
       mockCtx.isFinalized.mockReturnValue(true);
       mockCtx.finalize.mockClear();
 
-      await service.resetContext({ user_id: 'new-user' });
+      await service.resetContext({ user_id: "new-user" });
 
       expect(mockCtx.finalize).not.toHaveBeenCalled();
       expect(mockSDK.createContextWith).toHaveBeenCalled();
     });
 
-    it('should finalize in resetContext if context is not finalized', async () => {
+    it("should finalize in resetContext if context is not finalized", async () => {
       mockCtx.isFinalized.mockReturnValue(false);
       mockCtx.finalize.mockClear();
 
-      await service.resetContext({ user_id: 'new-user' });
+      await service.resetContext({ user_id: "new-user" });
 
       expect(mockCtx.finalize).toHaveBeenCalled();
     });
   });
 
-  describe('with async context (not ready)', () => {
-    it('should set loading true initially for unready context', () => {
+  describe("with async context (not ready)", () => {
+    it("should set loading true initially for unready context", () => {
       const asyncCtx = createMockContext({
         isReady: jest.fn().mockReturnValue(false),
         ready: jest.fn().mockReturnValue(new Promise<void>(() => {})),
@@ -458,9 +474,9 @@ describe('ABSmartlyService', () => {
     });
   });
 
-  describe('with failed context', () => {
-    it('should set error signal when context fails', async () => {
-      const testError = new Error('Connection failed');
+  describe("with failed context", () => {
+    it("should set error signal when context fails", async () => {
+      const testError = new Error("Connection failed");
       const failCtx = createMockContext({
         isReady: jest.fn().mockReturnValue(false),
         ready: jest.fn().mockRejectedValue(testError),
@@ -482,15 +498,17 @@ describe('ABSmartlyService', () => {
       expect(svc.loading()).toBe(false);
     });
 
-    it('should detect failure from isFailed()/readyError() when ready() resolves', async () => {
-      const testError = new Error('Connection failed');
+    it("should detect failure from isFailed()/readyError() when ready() resolves", async () => {
+      const testError = new Error("Connection failed");
       let resolveReady!: (v: boolean) => void;
       const failed = { value: false };
       const failCtx = createMockContext({
         isReady: jest.fn().mockReturnValue(false),
         isFailed: jest.fn().mockImplementation(() => failed.value),
         readyError: jest.fn().mockReturnValue(testError),
-        ready: jest.fn().mockReturnValue(new Promise<boolean>((r) => (resolveReady = r))),
+        ready: jest
+          .fn()
+          .mockReturnValue(new Promise<boolean>((r) => (resolveReady = r))),
       });
 
       TestBed.configureTestingModule({
@@ -512,13 +530,15 @@ describe('ABSmartlyService', () => {
       expect(svc.loading()).toBe(false);
     });
 
-    it('ignores a ready() completion from a context that has since been replaced', async () => {
+    it("ignores a ready() completion from a context that has since been replaced", async () => {
       let resolveOld!: (v: boolean) => void;
       const oldCtx = createMockContext({
         isReady: jest.fn().mockReturnValue(false),
         isFailed: jest.fn().mockReturnValue(true),
-        readyError: jest.fn().mockReturnValue(new Error('old')),
-        ready: jest.fn().mockReturnValue(new Promise<boolean>((r) => (resolveOld = r))),
+        readyError: jest.fn().mockReturnValue(new Error("old")),
+        ready: jest
+          .fn()
+          .mockReturnValue(new Promise<boolean>((r) => (resolveOld = r))),
       });
 
       TestBed.configureTestingModule({
@@ -530,7 +550,9 @@ describe('ABSmartlyService', () => {
       });
 
       const svc = TestBed.inject(ABSmartlyService);
-      const newCtx = createMockContext({ isReady: jest.fn().mockReturnValue(true) });
+      const newCtx = createMockContext({
+        isReady: jest.fn().mockReturnValue(true),
+      });
       (svc as any).context = newCtx;
       svc.failed.set(false);
       svc.error.set(null);

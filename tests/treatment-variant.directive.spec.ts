@@ -1,9 +1,11 @@
-import { Component, ViewChild } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
-import { TreatmentVariantDirective } from '../src/lib/treatment-variant.directive';
+import { Component, ViewChild } from "@angular/core";
+import { TestBed } from "@angular/core/testing";
+import { TreatmentVariantDirective } from "../src/lib/treatment-variant.directive";
 
 @Component({
-  template: `<ng-template absTreatmentVariant="0" #variant>Content</ng-template>`,
+  template: `<ng-template absTreatmentVariant="0" #variant
+    >Content</ng-template
+  >`,
   standalone: true,
   imports: [TreatmentVariantDirective],
 })
@@ -12,7 +14,9 @@ class TestHostComponent {
 }
 
 @Component({
-  template: `<ng-template [absTreatmentVariant]="1" #variant>Content</ng-template>`,
+  template: `<ng-template [absTreatmentVariant]="1" #variant
+    >Content</ng-template
+  >`,
   standalone: true,
   imports: [TreatmentVariantDirective],
 })
@@ -21,7 +25,9 @@ class TestHostNumberComponent {
 }
 
 @Component({
-  template: `<ng-template absTreatmentVariant="loading" #variant>Loading...</ng-template>`,
+  template: `<ng-template absTreatmentVariant="loading" #variant
+    >Loading...</ng-template
+  >`,
   standalone: true,
   imports: [TreatmentVariantDirective],
 })
@@ -29,7 +35,7 @@ class TestHostLoadingComponent {
   @ViewChild(TreatmentVariantDirective) directive!: TreatmentVariantDirective;
 }
 
-describe('TreatmentVariantDirective', () => {
+describe("TreatmentVariantDirective", () => {
   afterEach(() => {
     TestBed.resetTestingModule();
   });
@@ -40,10 +46,10 @@ describe('TreatmentVariantDirective', () => {
     });
     const fixture = TestBed.createComponent(TestHostComponent);
     fixture.detectChanges();
-    expect(fixture.componentInstance.directive.absTreatmentVariant).toBe('0');
+    expect(fixture.componentInstance.directive.absTreatmentVariant).toBe("0");
   });
 
-  it('should accept number variant 1', () => {
+  it("should accept number variant 1", () => {
     TestBed.configureTestingModule({
       imports: [TestHostNumberComponent],
     });
@@ -58,10 +64,12 @@ describe('TreatmentVariantDirective', () => {
     });
     const fixture = TestBed.createComponent(TestHostLoadingComponent);
     fixture.detectChanges();
-    expect(fixture.componentInstance.directive.absTreatmentVariant).toBe('loading');
+    expect(fixture.componentInstance.directive.absTreatmentVariant).toBe(
+      "loading",
+    );
   });
 
-  it('should have templateRef', () => {
+  it("should have templateRef", () => {
     TestBed.configureTestingModule({
       imports: [TestHostComponent],
     });
@@ -71,8 +79,8 @@ describe('TreatmentVariantDirective', () => {
   });
 });
 
-describe('TreatmentVariantDirective without decorator metadata', () => {
-  it('takes no constructor parameters, so the published tsc build is injectable', () => {
+describe("TreatmentVariantDirective without decorator metadata", () => {
+  it("takes no constructor parameters, so the published tsc build is injectable", () => {
     // The library is built by plain tsc without emitDecoratorMetadata; a
     // constructor parameter there cannot be resolved by an app at runtime.
     expect(TreatmentVariantDirective.length).toBe(0);

@@ -98,8 +98,6 @@ export class TreatmentComponent implements OnInit, AfterContentInit, OnDestroy {
     }
 
     if (this.loading()) {
-      // No variant is shown until the SDK has assigned one: only the optional
-      // loading template is rendered while the context is not ready.
       const loadingDirective = this.variants.find((v) => v.absTreatmentVariant === 'loading');
       if (loadingDirective) {
         this.container.createEmbeddedView(loadingDirective.templateRef);
