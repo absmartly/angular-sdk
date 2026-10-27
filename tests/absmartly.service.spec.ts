@@ -512,7 +512,7 @@ describe('ABSmartlyService', () => {
       expect(svc.loading()).toBe(false);
     });
 
-    it('should ignore a stale ready() completion after resetContext replaced the context', async () => {
+    it('ignores a ready() completion from a context that has since been replaced', async () => {
       let resolveOld!: (v: boolean) => void;
       const oldCtx = createMockContext({
         isReady: jest.fn().mockReturnValue(false),

@@ -1,10 +1,10 @@
-import { Component } from '@angular/core';
-import { TestBed, ComponentFixture } from '@angular/core/testing';
-import { TreatmentComponent } from '../src/lib/treatment.component';
-import { TreatmentVariantDirective } from '../src/lib/treatment-variant.directive';
-import { ABSmartlyService } from '../src/lib/absmartly.service';
-import { ABSMARTLY_CONFIG } from '../src/lib/absmartly.types';
-import type { ABSmartlyConfig } from '../src/lib/absmartly.types';
+import { Component } from "@angular/core";
+import { TestBed, ComponentFixture } from "@angular/core/testing";
+import { TreatmentComponent } from "../src/lib/treatment.component";
+import { TreatmentVariantDirective } from "../src/lib/treatment-variant.directive";
+import { ABSmartlyService } from "../src/lib/absmartly.service";
+import { ABSMARTLY_CONFIG } from "../src/lib/absmartly.types";
+import type { ABSmartlyConfig } from "../src/lib/absmartly.types";
 
 function createMockContext(overrides: Record<string, any> = {}) {
   return {
@@ -14,8 +14,8 @@ function createMockContext(overrides: Record<string, any> = {}) {
     ready: jest.fn().mockResolvedValue(undefined),
     treatment: jest.fn().mockReturnValue(0),
     peek: jest.fn().mockReturnValue(0),
-    variableValue: jest.fn().mockReturnValue(''),
-    peekVariableValue: jest.fn().mockReturnValue(''),
+    variableValue: jest.fn().mockReturnValue(""),
+    peekVariableValue: jest.fn().mockReturnValue(""),
     variableKeys: jest.fn().mockReturnValue({}),
     track: jest.fn(),
     attribute: jest.fn(),
@@ -27,7 +27,7 @@ function createMockContext(overrides: Record<string, any> = {}) {
     customFieldKeys: jest.fn().mockReturnValue([]),
     customFieldValueType: jest.fn().mockReturnValue(null),
     unit: jest.fn(),
-    getUnit: jest.fn().mockReturnValue(''),
+    getUnit: jest.fn().mockReturnValue(""),
     publish: jest.fn().mockResolvedValue(undefined),
     finalize: jest.fn().mockResolvedValue(undefined),
     refresh: jest.fn().mockResolvedValue(undefined),
@@ -39,7 +39,7 @@ function createMockContext(overrides: Record<string, any> = {}) {
   };
 }
 
-jest.mock('@absmartly/javascript-sdk', () => {
+jest.mock("@absmartly/javascript-sdk", () => {
   class Context {}
   return {
     __esModule: true,
@@ -50,19 +50,25 @@ jest.mock('@absmartly/javascript-sdk', () => {
 });
 
 const defaultConfig: ABSmartlyConfig = {
-  endpoint: 'http://test',
-  apiKey: 'test-key',
-  environment: 'test',
-  application: 'test-app',
-  units: { session_id: 'user-1' },
+  endpoint: "http://test",
+  apiKey: "test-key",
+  environment: "test",
+  application: "test-app",
+  units: { session_id: "user-1" },
 };
 
 @Component({
   template: `
     <abs-treatment name="test_exp">
-      <ng-template absTreatmentVariant="0"><span class="v0">Control</span></ng-template>
-      <ng-template absTreatmentVariant="1"><span class="v1">Treatment B</span></ng-template>
-      <ng-template absTreatmentVariant="2"><span class="v2">Treatment C</span></ng-template>
+      <ng-template absTreatmentVariant="0"
+        ><span class="v0">Control</span></ng-template
+      >
+      <ng-template absTreatmentVariant="1"
+        ><span class="v1">Treatment B</span></ng-template
+      >
+      <ng-template absTreatmentVariant="2"
+        ><span class="v2">Treatment C</span></ng-template
+      >
     </abs-treatment>
   `,
   standalone: true,
@@ -73,9 +79,15 @@ class TestHostComponent {}
 @Component({
   template: `
     <abs-treatment name="test_exp">
-      <ng-template absTreatmentVariant="loading"><span class="loading">Loading</span></ng-template>
-      <ng-template absTreatmentVariant="0"><span class="v0">Control</span></ng-template>
-      <ng-template absTreatmentVariant="1"><span class="v1">Treatment B</span></ng-template>
+      <ng-template absTreatmentVariant="loading"
+        ><span class="loading">Loading</span></ng-template
+      >
+      <ng-template absTreatmentVariant="0"
+        ><span class="v0">Control</span></ng-template
+      >
+      <ng-template absTreatmentVariant="1"
+        ><span class="v1">Treatment B</span></ng-template
+      >
     </abs-treatment>
   `,
   standalone: true,
@@ -86,8 +98,12 @@ class TestHostLoadingComponent {}
 @Component({
   template: `
     <abs-treatment name="test_exp">
-      <ng-template absTreatmentVariant="0"><span class="v0">Control</span></ng-template>
-      <ng-template absTreatmentVariant="default"><span class="default">Default</span></ng-template>
+      <ng-template absTreatmentVariant="0"
+        ><span class="v0">Control</span></ng-template
+      >
+      <ng-template absTreatmentVariant="default"
+        ><span class="default">Default</span></ng-template
+      >
     </abs-treatment>
   `,
   standalone: true,
@@ -98,8 +114,12 @@ class TestHostWithDefaultComponent {}
 @Component({
   template: `
     <abs-treatment name="test_exp" [peek]="true">
-      <ng-template absTreatmentVariant="0"><span class="v0">Control</span></ng-template>
-      <ng-template absTreatmentVariant="1"><span class="v1">Treatment</span></ng-template>
+      <ng-template absTreatmentVariant="0"
+        ><span class="v0">Control</span></ng-template
+      >
+      <ng-template absTreatmentVariant="1"
+        ><span class="v1">Treatment</span></ng-template
+      >
     </abs-treatment>
   `,
   standalone: true,
@@ -107,7 +127,7 @@ class TestHostWithDefaultComponent {}
 })
 class TestHostPeekComponent {}
 
-describe('TreatmentComponent', () => {
+describe("TreatmentComponent", () => {
   let mockCtx: any;
   let mockSDK: any;
 
@@ -118,7 +138,7 @@ describe('TreatmentComponent', () => {
       createContextWith: jest.fn().mockReturnValue(mockCtx),
     };
 
-    const absmartly = require('@absmartly/javascript-sdk').default;
+    const absmartly = require("@absmartly/javascript-sdk").default;
     absmartly.SDK.mockImplementation(() => mockSDK);
   });
 
@@ -141,67 +161,79 @@ describe('TreatmentComponent', () => {
     return fixture;
   }
 
-  it('should render variant 0 (control) by default', () => {
+  it("should render variant 0 (control) by default", () => {
     mockCtx.treatment.mockReturnValue(0);
     const fixture = createFixture(TestHostComponent);
-    expect(fixture.nativeElement.querySelector('.v0')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.v0').textContent).toBe('Control');
+    expect(fixture.nativeElement.querySelector(".v0")).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".v0").textContent).toBe(
+      "Control",
+    );
   });
 
-  it('should render variant 1 when treatment returns 1', () => {
+  it("should render variant 1 when treatment returns 1", () => {
     mockCtx.treatment.mockReturnValue(1);
     const fixture = createFixture(TestHostComponent);
-    expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.v1').textContent).toBe('Treatment B');
+    expect(fixture.nativeElement.querySelector(".v1")).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".v1").textContent).toBe(
+      "Treatment B",
+    );
   });
 
-  it('should render variant 2 when treatment returns 2', () => {
+  it("should render variant 2 when treatment returns 2", () => {
     mockCtx.treatment.mockReturnValue(2);
     const fixture = createFixture(TestHostComponent);
-    expect(fixture.nativeElement.querySelector('.v2')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.v2').textContent).toBe('Treatment C');
+    expect(fixture.nativeElement.querySelector(".v2")).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".v2").textContent).toBe(
+      "Treatment C",
+    );
   });
 
-  it('should call context.treatment() with experiment name', () => {
+  it("should call context.treatment() with experiment name", () => {
     createFixture(TestHostComponent);
-    expect(mockCtx.treatment).toHaveBeenCalledWith('test_exp');
+    expect(mockCtx.treatment).toHaveBeenCalledWith("test_exp");
   });
 
-  it('should fallback to default variant when no match', () => {
+  it("should fallback to default variant when no match", () => {
     mockCtx.treatment.mockReturnValue(99);
     const fixture = createFixture(TestHostWithDefaultComponent);
-    expect(fixture.nativeElement.querySelector('.default')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".default")).toBeTruthy();
   });
 
-  it('should use peek when peek input is true', () => {
+  it("should use peek when peek input is true", () => {
     mockCtx.peek.mockReturnValue(1);
     const fixture = createFixture(TestHostPeekComponent);
-    expect(mockCtx.peek).toHaveBeenCalledWith('test_exp');
+    expect(mockCtx.peek).toHaveBeenCalledWith("test_exp");
     expect(mockCtx.treatment).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".v1")).toBeTruthy();
   });
 
-  it('should render first variant as fallback when no match and no default', () => {
+  it("should render first variant as fallback when no match and no default", () => {
     mockCtx.treatment.mockReturnValue(99);
     const fixture = createFixture(TestHostComponent);
-    expect(fixture.nativeElement.querySelector('.v0')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".v0")).toBeTruthy();
   });
 
-  it('should match variant by string comparison (normalizing both sides)', () => {
+  it("should match variant by string comparison (normalizing both sides)", () => {
     mockCtx.treatment.mockReturnValue(1);
     const fixture = createFixture(TestHostComponent);
-    expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.v1').textContent).toBe('Treatment B');
+    expect(fixture.nativeElement.querySelector(".v1")).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".v1").textContent).toBe(
+      "Treatment B",
+    );
   });
 
-  it('should match variant by letter (A=0, B=1)', () => {
+  it("should match variant by letter (A=0, B=1)", () => {
     mockCtx.treatment.mockReturnValue(1);
 
     @Component({
       template: `
         <abs-treatment name="test_exp">
-          <ng-template absTreatmentVariant="A"><span class="vA">Control</span></ng-template>
-          <ng-template absTreatmentVariant="B"><span class="vB">Treatment B</span></ng-template>
+          <ng-template absTreatmentVariant="A"
+            ><span class="vA">Control</span></ng-template
+          >
+          <ng-template absTreatmentVariant="B"
+            ><span class="vB">Treatment B</span></ng-template
+          >
         </abs-treatment>
       `,
       standalone: true,
@@ -210,18 +242,22 @@ describe('TreatmentComponent', () => {
     class TestLetterVariantComponent {}
 
     const fixture = createFixture(TestLetterVariantComponent);
-    expect(fixture.nativeElement.querySelector('.vB')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".vB")).toBeTruthy();
   });
 
-  it('should find nested variant directives with descendants option', () => {
+  it("should find nested variant directives with descendants option", () => {
     mockCtx.treatment.mockReturnValue(1);
 
     @Component({
       template: `
         <abs-treatment name="test_exp">
           <div>
-            <ng-template absTreatmentVariant="0"><span class="v0">Control</span></ng-template>
-            <ng-template absTreatmentVariant="1"><span class="v1">Treatment</span></ng-template>
+            <ng-template absTreatmentVariant="0"
+              ><span class="v0">Control</span></ng-template
+            >
+            <ng-template absTreatmentVariant="1"
+              ><span class="v1">Treatment</span></ng-template
+            >
           </div>
         </abs-treatment>
       `,
@@ -231,39 +267,45 @@ describe('TreatmentComponent', () => {
     class TestNestedVariantComponent {}
 
     const fixture = createFixture(TestNestedVariantComponent);
-    expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.v1').textContent).toBe('Treatment');
+    expect(fixture.nativeElement.querySelector(".v1")).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".v1").textContent).toBe(
+      "Treatment",
+    );
   });
 
-  it('should render correctly when context resolves after ngAfterContentInit', async () => {
+  it("should render correctly when context resolves after ngAfterContentInit", async () => {
     let resolveFn: () => void;
-    const pendingPromise = new Promise<void>((resolve) => { resolveFn = resolve; });
+    const pendingPromise = new Promise<void>((resolve) => {
+      resolveFn = resolve;
+    });
     mockCtx.isReady.mockReturnValue(false);
     mockCtx.ready.mockReturnValue(pendingPromise);
     mockCtx.treatment.mockReturnValue(1);
 
     const fixture = createFixture(TestHostComponent);
 
-    expect(fixture.nativeElement.querySelector('.v1')).toBeFalsy();
+    expect(fixture.nativeElement.querySelector(".v1")).toBeFalsy();
 
     resolveFn!();
     await pendingPromise;
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".v1")).toBeTruthy();
   });
 
-  it('renders the loading template while the context is not ready, then the variant', async () => {
+  it("renders the loading template while the context is not ready, then the variant", async () => {
     let resolveFn: () => void;
-    const pendingPromise = new Promise<void>((r) => { resolveFn = r; });
+    const pendingPromise = new Promise<void>((r) => {
+      resolveFn = r;
+    });
     mockCtx.isReady.mockReturnValue(false);
     mockCtx.ready.mockReturnValue(pendingPromise);
     mockCtx.treatment.mockReturnValue(1);
 
     const fixture = createFixture(TestHostLoadingComponent);
 
-    expect(fixture.nativeElement.querySelector('.loading')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.v0')).toBeFalsy();
+    expect(fixture.nativeElement.querySelector(".loading")).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".v0")).toBeFalsy();
     expect(mockCtx.treatment).not.toHaveBeenCalled();
 
     mockCtx.isReady.mockReturnValue(true);
@@ -271,11 +313,11 @@ describe('TreatmentComponent', () => {
     await pendingPromise;
     fixture.detectChanges();
 
-    expect(fixture.nativeElement.querySelector('.loading')).toBeFalsy();
-    expect(fixture.nativeElement.querySelector('.v1')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector(".loading")).toBeFalsy();
+    expect(fixture.nativeElement.querySelector(".v1")).toBeTruthy();
   });
 
-  it('renders the SDK treatment, not an error, when the initial load failed', async () => {
+  it("renders the SDK treatment, not an error, when the initial load failed", async () => {
     // Like the JavaScript SDK, a failed context is ready and serves control.
     mockCtx.isReady.mockReturnValue(true);
     mockCtx.isFailed.mockReturnValue(true);
@@ -283,7 +325,31 @@ describe('TreatmentComponent', () => {
 
     const fixture = createFixture(TestHostComponent);
 
-    expect(mockCtx.treatment).toHaveBeenCalledWith('test_exp');
-    expect(fixture.nativeElement.querySelector('.v0')).toBeTruthy();
+    expect(mockCtx.treatment).toHaveBeenCalledWith("test_exp");
+    expect(fixture.nativeElement.querySelector(".v0")).toBeTruthy();
+  });
+
+  it("renders no variant while the context is not ready and there is no loading template", async () => {
+    let resolveFn: () => void;
+    const pendingPromise = new Promise<void>((r) => {
+      resolveFn = r;
+    });
+    mockCtx.isReady.mockReturnValue(false);
+    mockCtx.ready.mockReturnValue(pendingPromise);
+    mockCtx.treatment.mockReturnValue(1);
+
+    const fixture = createFixture(TestHostComponent);
+
+    expect(fixture.nativeElement.querySelector(".v0")).toBeFalsy();
+    expect(fixture.nativeElement.querySelector(".v1")).toBeFalsy();
+    expect(mockCtx.treatment).not.toHaveBeenCalled();
+
+    mockCtx.isReady.mockReturnValue(true);
+    resolveFn!();
+    await pendingPromise;
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector(".v0")).toBeFalsy();
+    expect(fixture.nativeElement.querySelector(".v1")).toBeTruthy();
   });
 });
