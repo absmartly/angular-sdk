@@ -1,10 +1,10 @@
-import { TestBed } from '@angular/core/testing';
-import { ABSmartlyModule } from '../src/lib/absmartly.module';
-import { ABSmartlyService } from '../src/lib/absmartly.service';
-import { ABSMARTLY_CONFIG } from '../src/lib/absmartly.types';
-import type { ABSmartlyConfig } from '../src/lib/absmartly.types';
+import { TestBed } from "@angular/core/testing";
+import { ABSmartlyModule } from "../src/lib/absmartly.module";
+import { ABSmartlyService } from "../src/lib/absmartly.service";
+import { ABSMARTLY_CONFIG } from "../src/lib/absmartly.types";
+import type { ABSmartlyConfig } from "../src/lib/absmartly.types";
 
-jest.mock('@absmartly/javascript-sdk', () => {
+jest.mock("@absmartly/javascript-sdk", () => {
   const mCtx = {
     isReady: jest.fn().mockReturnValue(true),
     isFailed: jest.fn().mockReturnValue(false),
@@ -30,19 +30,19 @@ jest.mock('@absmartly/javascript-sdk', () => {
 });
 
 const testConfig: ABSmartlyConfig = {
-  endpoint: 'http://test',
-  apiKey: 'test-key',
-  environment: 'test',
-  application: 'test-app',
-  units: { session_id: 'user-1' },
+  endpoint: "http://test",
+  apiKey: "test-key",
+  environment: "test",
+  application: "test-app",
+  units: { session_id: "user-1" },
 };
 
-describe('ABSmartlyModule', () => {
+describe("ABSmartlyModule", () => {
   afterEach(() => {
     TestBed.resetTestingModule();
   });
 
-  it('should provide ABSmartlyService via forRoot()', () => {
+  it("should provide ABSmartlyService via forRoot()", () => {
     TestBed.configureTestingModule({
       imports: [ABSmartlyModule.forRoot(testConfig)],
     });
@@ -51,7 +51,7 @@ describe('ABSmartlyModule', () => {
     expect(service).toBeInstanceOf(ABSmartlyService);
   });
 
-  it('should provide ABSMARTLY_CONFIG via forRoot()', () => {
+  it("should provide ABSMARTLY_CONFIG via forRoot()", () => {
     TestBed.configureTestingModule({
       imports: [ABSmartlyModule.forRoot(testConfig)],
     });
@@ -60,7 +60,7 @@ describe('ABSmartlyModule', () => {
     expect(config).toEqual(testConfig);
   });
 
-  it('should return ModuleWithProviders with correct ngModule', () => {
+  it("should return ModuleWithProviders with correct ngModule", () => {
     const result = ABSmartlyModule.forRoot(testConfig);
     expect(result.ngModule).toBe(ABSmartlyModule);
     expect(result.providers).toBeDefined();

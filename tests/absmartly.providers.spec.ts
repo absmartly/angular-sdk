@@ -1,10 +1,10 @@
-import { TestBed } from '@angular/core/testing';
-import { provideABSmartly } from '../src/lib/absmartly.providers';
-import { ABSmartlyService } from '../src/lib/absmartly.service';
-import { ABSMARTLY_CONFIG } from '../src/lib/absmartly.types';
-import type { ABSmartlyConfig } from '../src/lib/absmartly.types';
+import { TestBed } from "@angular/core/testing";
+import { provideABSmartly } from "../src/lib/absmartly.providers";
+import { ABSmartlyService } from "../src/lib/absmartly.service";
+import { ABSMARTLY_CONFIG } from "../src/lib/absmartly.types";
+import type { ABSmartlyConfig } from "../src/lib/absmartly.types";
 
-jest.mock('@absmartly/javascript-sdk', () => {
+jest.mock("@absmartly/javascript-sdk", () => {
   const mCtx = {
     isReady: jest.fn().mockReturnValue(true),
     isFailed: jest.fn().mockReturnValue(false),
@@ -30,19 +30,19 @@ jest.mock('@absmartly/javascript-sdk', () => {
 });
 
 const testConfig: ABSmartlyConfig = {
-  endpoint: 'http://test',
-  apiKey: 'test-key',
-  environment: 'test',
-  application: 'test-app',
-  units: { session_id: 'user-1' },
+  endpoint: "http://test",
+  apiKey: "test-key",
+  environment: "test",
+  application: "test-app",
+  units: { session_id: "user-1" },
 };
 
-describe('provideABSmartly', () => {
+describe("provideABSmartly", () => {
   afterEach(() => {
     TestBed.resetTestingModule();
   });
 
-  it('should provide ABSmartlyService', () => {
+  it("should provide ABSmartlyService", () => {
     TestBed.configureTestingModule({
       providers: [provideABSmartly(testConfig)],
     });
@@ -51,7 +51,7 @@ describe('provideABSmartly', () => {
     expect(service).toBeInstanceOf(ABSmartlyService);
   });
 
-  it('should provide ABSMARTLY_CONFIG', () => {
+  it("should provide ABSMARTLY_CONFIG", () => {
     TestBed.configureTestingModule({
       providers: [provideABSmartly(testConfig)],
     });
@@ -60,20 +60,20 @@ describe('provideABSmartly', () => {
     expect(config).toEqual(testConfig);
   });
 
-  it('should use config values', () => {
+  it("should use config values", () => {
     TestBed.configureTestingModule({
       providers: [provideABSmartly(testConfig)],
     });
 
     const config = TestBed.inject(ABSMARTLY_CONFIG);
-    expect(config.endpoint).toBe('http://test');
-    expect(config.apiKey).toBe('test-key');
-    expect(config.environment).toBe('test');
-    expect(config.application).toBe('test-app');
-    expect(config.units).toEqual({ session_id: 'user-1' });
+    expect(config.endpoint).toBe("http://test");
+    expect(config.apiKey).toBe("test-key");
+    expect(config.environment).toBe("test");
+    expect(config.application).toBe("test-app");
+    expect(config.units).toEqual({ session_id: "user-1" });
   });
 
-  it('should provide same service instance (singleton)', () => {
+  it("should provide same service instance (singleton)", () => {
     TestBed.configureTestingModule({
       providers: [provideABSmartly(testConfig)],
     });
