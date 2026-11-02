@@ -1,9 +1,9 @@
 import { NgModule, type ModuleWithProviders } from '@angular/core';
-import { ABSmartlyService } from './absmartly.service';
-import { ABSMARTLY_CONFIG, type ABSmartlyConfig } from './absmartly.types';
-import { TreatmentComponent } from './treatment.component';
-import { TreatmentVariantDirective } from './treatment-variant.directive';
-import { TreatmentDirective } from './treatment.directive';
+import { ABSmartlyService } from './absmartly.service.js';
+import { ABSMARTLY_CONFIG, type ABSmartlyConfig } from './absmartly.types.js';
+import { TreatmentComponent } from './treatment.component.js';
+import { TreatmentVariantDirective } from './treatment-variant.directive.js';
+import { TreatmentDirective } from './treatment.directive.js';
 
 @NgModule({
   imports: [TreatmentComponent, TreatmentVariantDirective, TreatmentDirective],

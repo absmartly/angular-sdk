@@ -1,16 +1,20 @@
 import { Inject, Injectable, OnDestroy, Optional, signal } from '@angular/core';
 import absmartly from '@absmartly/javascript-sdk';
+import { Context, SDK } from '@absmartly/javascript-sdk';
 import {
   ABSMARTLY_CONFIG,
   ABSMARTLY_CONTEXT,
   ABSmartlyConfig,
   ABSmartlyContextOptions,
-} from './absmartly.types';
+} from './absmartly.types.js';
 
 @Injectable()
 export class ABSmartlyService implements OnDestroy {
-  private sdk!: any;
-  private context!: any;
+  private sdk!: SDK;
+  private context!: Context;
+  // A context handed in through ABSMARTLY_CONTEXT belongs to the caller; the
+  // service only finalizes contexts it created itself.
+  private ownsContext = true;
 
   readonly ready = signal(false);
   readonly failed = signal(false);
@@ -19,16 +23,36 @@ export class ABSmartlyService implements OnDestroy {
 
   constructor(
     @Inject(ABSMARTLY_CONFIG) private config: ABSmartlyConfig,
-    @Optional() @Inject(ABSMARTLY_CONTEXT) existingContext: any,
+    @Optional() @Inject(ABSMARTLY_CONTEXT) existingContext: Context | null,
   ) {
     if (existingContext) {
-      this.sdk = (existingContext as any)['_sdk'];
+      this.sdk = this.resolveOwningSDK(existingContext) ?? this.createSDK(config);
       this.context = existingContext;
+      this.ownsContext = false;
       this.initializeState();
       return;
     }
 
-    this.sdk = new absmartly.SDK({
+    this.sdk = this.createSDK(config);
+
+    this.context = this.sdk.createContext(
+      { units: config.units },
+      {
+        publishDelay: config.publishDelay ?? -1,
+        refreshPeriod: config.refreshPeriod ?? 0,
+      },
+    );
+
+    this.initializeState();
+  }
+
+  private resolveOwningSDK(context: Context): SDK | undefined {
+    const ctx = context as any;
+    return ctx.getSDK?.() ?? ctx._sdk ?? undefined;
+  }
+
+  private createSDK(config: ABSmartlyConfig): SDK {
+    return new absmartly.SDK({
       endpoint: config.endpoint,
       apiKey: config.apiKey,
       environment: config.environment,
@@ -37,38 +61,50 @@ export class ABSmartlyService implements OnDestroy {
       timeout: config.timeout ?? 3000,
       eventLogger: config.eventLogger,
     });
+  }
 
-    this.context = this.sdk.createContext({
-      units: config.units,
-      publishDelay: config.publishDelay ?? -1,
-      refreshPeriod: config.refreshPeriod ?? 0,
-    } as any);
-
-    this.initializeState();
+  // JS Context.ready() resolves (never rejects) even when the initial fetch
+  // failed; failure is only visible through isFailed()/readyError(). The
+  // readyError() accessor is absent from the 1.13.x releases this package
+  // allows, so it is optional here.
+  private failureOf(context: Context): Error | null {
+    if (!context.isFailed()) {
+      return null;
+    }
+    const e = (context as any).readyError?.();
+    if (e instanceof Error) {
+      return e;
+    }
+    return new Error(e ? String(e) : 'ABsmartly Context failed to initialize.');
   }
 
   private initializeState(): void {
-    if (this.context.isReady()) {
+    const context = this.context;
+    const apply = (): void => {
+      // A reset replaced the context while this one was still loading.
+      if (context !== this.context) {
+        return;
+      }
+      const failure = this.failureOf(context);
       this.ready.set(true);
-      this.failed.set(this.context.isFailed());
+      this.failed.set(failure !== null);
+      this.error.set(failure);
       this.loading.set(false);
+    };
+
+    if (context.isReady()) {
+      apply();
       return;
     }
 
-    this.context
-      .ready()
-      .then(() => {
-        this.ready.set(true);
-        this.failed.set(this.context.isFailed());
-        this.loading.set(false);
-        this.error.set(null);
-      })
-      .catch((e: unknown) => {
-        const err = e instanceof Error ? e : new Error(String(e));
-        this.error.set(err);
-        this.failed.set(true);
-        this.loading.set(false);
-      });
+    context.ready().then(apply, (e: unknown) => {
+      if (context !== this.context) {
+        return;
+      }
+      this.error.set(e instanceof Error ? e : new Error(String(e)));
+      this.failed.set(true);
+      this.loading.set(false);
+    });
   }
 
   treatment(experimentName: string): number {
@@ -79,12 +115,12 @@ export class ABSmartlyService implements OnDestroy {
     return this.context.peek(experimentName) ?? 0;
   }
 
-  variableValue(key: string, defaultValue: string): string {
-    return this.context.variableValue(key, defaultValue);
+  variableValue<T = string>(key: string, defaultValue: T): T {
+    return this.context.variableValue(key, defaultValue as any) as T;
   }
 
-  peekVariableValue(key: string, defaultValue: string): string {
-    return this.context.peekVariableValue(key, defaultValue);
+  peekVariableValue<T = string>(key: string, defaultValue: T): T {
+    return this.context.peekVariableValue(key, defaultValue as any) as T;
   }
 
   variableKeys(): Record<string, unknown[]> {
@@ -103,7 +139,7 @@ export class ABSmartlyService implements OnDestroy {
     this.context.attributes(attrs);
   }
 
-  getAttribute(name: string): undefined {
+  getAttribute(name: string): unknown {
     return this.context.getAttribute(name);
   }
 
@@ -140,10 +176,7 @@ export class ABSmartlyService implements OnDestroy {
   }
 
   async finalize(): Promise<void> {
-    const result = this.context.finalize();
-    if (result !== true) {
-      await result;
-    }
+    await this.context.finalize();
   }
 
   async refresh(): Promise<void> {
@@ -157,9 +190,8 @@ export class ABSmartlyService implements OnDestroy {
     try {
       await this.context.ready();
       const contextData = this.context.data();
-      const result = this.context.finalize();
-      if (result !== true) {
-        await result;
+      if (!this.context.isFinalized()) {
+        await this.context.finalize();
       }
 
       this.context = this.sdk.createContextWith(
@@ -168,9 +200,10 @@ export class ABSmartlyService implements OnDestroy {
         {
           publishDelay: options?.publishDelay ?? this.config.publishDelay ?? -1,
           refreshPeriod: options?.refreshPeriod ?? this.config.refreshPeriod ?? 0,
-        } as any,
+        },
       );
 
+      this.ownsContext = true;
       this.ready.set(this.context.isReady());
       this.failed.set(false);
       this.loading.set(!this.context.isReady());
@@ -208,20 +241,17 @@ export class ABSmartlyService implements OnDestroy {
     return this.context.data();
   }
 
-  getContext(): any {
+  getContext(): Context {
     return this.context;
   }
 
-  getSDK(): any {
+  getSDK(): SDK {
     return this.sdk;
   }
 
   ngOnDestroy(): void {
-    if (!this.context.isFinalized()) {
-      const result = this.context.finalize();
-      if (result !== true) {
-        result.catch(() => {});
-      }
+    if (this.ownsContext && !this.context.isFinalized()) {
+      Promise.resolve(this.context.finalize()).catch(() => {});
     }
   }
 }
