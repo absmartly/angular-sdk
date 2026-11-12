@@ -31,7 +31,7 @@
     "@angular/core": ">=16.0.0"
   },
   "dependencies": {
-    "@absmartly/javascript-sdk": "github:absmartly/javascript-sdk#feat/sdk-system-attributes"
+    "@absmartly/javascript-sdk": "github:absmartly/javascript-sdk#20029ff8ffd49b002dae2963766fed3fdc3b7ab6"
   },
   "devDependencies": {
     "@angular/common": "^18.2.0",
