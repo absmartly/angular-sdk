@@ -325,6 +325,8 @@ absmartly.attributes({
 });
 ```
 
+Audiences and assignment rules also see `application` and `environment`, set to the names in your configuration. Setting an attribute with either name overrides the configured value. See the [Migration Guide](#migration-guide-javascript-sdk-113x--1140).
+
 ### Custom Assignments
 
 ```typescript
@@ -446,6 +448,18 @@ provideABSmartly({
 | `exposure` | `Context.treatment()` succeeds on first exposure    | `Exposure` enqueued for publishing        |
 | `goal`     | `Context.track()` method succeeds                   | `GoalAchievement` enqueued for publishing |
 | `finalize` | `Context.finalize()` method succeeds the first time | `null`                                    |
+
+## Migration Guide (javascript-sdk 1.13.x → 1.14.0)
+
+This SDK now depends on `@absmartly/javascript-sdk` 1.14.0, which changes how audiences are evaluated. No code changes are needed in this wrapper.
+
+### Audiences always see `application` and `environment`; the automatic `app_version` is gone
+
+**Before:** audience filters and assignment-rule conditions saw only the attributes you set. The Web Console offers `application` and `environment` as attributes because the collector adds them to every event, but the SDK never had them, so a condition on either evaluated against a missing value and never matched.
+
+**After:** the SDK always evaluates audiences and assignment-rule conditions with `application` and `environment` set to the `application` and `environment` names in your `ABSmartlyConfig`. An attribute you set with the same name, at any time, overrides them. Names that are not configured or empty are left out. They are not published. The SDK no longer adds `app_version` for audiences or rules (one you set yourself with `absmartly.attribute("app_version", ...)` is still used and published like any other attribute).
+
+**This changes assignment for running experiments.** A unit in an experiment with Audience enforced (`audienceStrict`) and an `environment` or `application` condition currently gets variant 0, even when it matches the condition and even when the experiment is full-on. After upgrading, a matching unit is randomised normally (or gets the full-on variant). Those experiments are broken today; this release fixes them, but their exposures will change. An audience or rule on `app_version` no longer matches unless you set `app_version` yourself.
 
 ## About A/B Smartly
 
