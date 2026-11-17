@@ -42,7 +42,6 @@ jobs:
       id-token: write
       contents: read
     env:
-      PACKAGE: "@absmartly/angular-sdk"
       # push events have no inputs, so this is false for tag pushes.
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
     steps:
@@ -85,73 +84,32 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Check tag matches package.json version
-        id: version
+      - name: Check tag, version and npm dist-tag
+        id: plan
         shell: bash
         env:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
+        # Fails unless the tag is v<package.json version> and that version is not
+        # on npm yet. Prints "--tag latest-v<major>" when this release must not
+        # become latest (a 1.x patch while 2.x is latest), "--tag <pre>" for
+        # prereleases, and nothing otherwise. See scripts/release-plan.cjs.
         run: |
           set -euo pipefail
-          VERSION=$(node -p "require('./package.json').version")
-          echo "package.json version: ${VERSION}"
-          if [ "$REF_TYPE" = "tag" ]; then
-            if [ "$REF_NAME" != "v${VERSION}" ]; then
-              echo "::error::Tag ${REF_NAME} does not match package.json version ${VERSION} (expected v${VERSION})"
-              exit 1
-            fi
-          elif [ "$DRY_RUN" = "true" ]; then
-            echo "::notice::Dry run on ${REF_TYPE} ${REF_NAME}: no tag to compare with v${VERSION}"
-          else
-            echo "::error::Publishing requires a v* tag ref, got ${REF_TYPE} ${REF_NAME}"
-            exit 1
-          fi
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-
-      - name: Decide npm dist-tag
-        id: tag
-        shell: bash
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          # A missing package (first publish) is E404; any other failure must not
-          # be mistaken for "nothing published yet".
-          if VIEW=$(npm view "$PACKAGE" --json 2>/tmp/npm-view.err); then
-            LATEST=$(node -e 'const p = JSON.parse(process.argv[1]); console.log(p["dist-tags"]?.latest ?? "")' "$VIEW")
-            if node -e 'const p = JSON.parse(process.argv[1]); const v = [].concat(p.versions ?? []); process.exit(v.includes(process.argv[2]) ? 0 : 1)' "$VIEW" "$VERSION"; then
-              if [ "$DRY_RUN" = "true" ]; then
-                echo "::notice::${PACKAGE}@${VERSION} is already published on npm; a real publish would fail"
-              else
-                echo "::error::${PACKAGE}@${VERSION} is already published on npm"
-                exit 1
-              fi
-            fi
-          elif grep -q E404 /tmp/npm-view.err; then
-            LATEST=""
-          else
-            cat /tmp/npm-view.err >&2
-            exit 1
-          fi
-          echo "Current latest on npm: ${LATEST:-<none>}"
-          # Prints "--tag latest-v<major>" when this release must not become latest
-          # (a 1.x patch while 2.x is latest), "--tag <pre>" for prereleases,
-          # and nothing otherwise.
-          TAG_ARGS=$(node scripts/npm-dist-tag.cjs "$VERSION" "$LATEST")
-          echo "dist-tag args: ${TAG_ARGS:-<none, becomes latest>}"
+          TAG_ARGS=$(node scripts/release-plan.cjs)
           echo "args=${TAG_ARGS}" >> "$GITHUB_OUTPUT"
 
       - name: Publish to npm (dry run)
         if: env.DRY_RUN == 'true'
         env:
-          TAG_ARGS: ${{ steps.tag.outputs.args }}
+          TAG_ARGS: ${{ steps.plan.outputs.args }}
         # TAG_ARGS is unquoted on purpose: it is empty or "--tag <name>".
         run: npm publish --provenance --access public $TAG_ARGS --dry-run
 
       - name: Publish to npm
         if: env.DRY_RUN != 'true'
         env:
-          TAG_ARGS: ${{ steps.tag.outputs.args }}
+          TAG_ARGS: ${{ steps.plan.outputs.args }}
           # Fallback only: used when trusted publishing (OIDC) is not configured,
           # e.g. the first release of this package. See the header comment.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

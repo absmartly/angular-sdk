@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "homepage": "https://github.com/absmartly/angular-sdk#README.md",
   "bugs": "https://github.com/absmartly/angular-sdk/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/absmartly/angular-sdk.git"
+  },
   "keywords": [
     "absmartly",
     "ab-smartly",
