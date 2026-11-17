@@ -6,7 +6,7 @@ import * as path from "path";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { distTag, plan } = require("../scripts/release-plan.cjs") as {
-  distTag: (version: string, latest?: string) => string;
+  distTag: (version: string, latest?: string, versions?: string[]) => string;
   plan: (input: {
     version: string;
     refType: string;
@@ -105,6 +105,38 @@ describe("distTag", () => {
   });
 
   it.each([
+    // a newer stable 1.x is already out: latest-v1 would move backwards
+    ["1.5.0", "2.0.0", ["1.6.0", "2.0.0"], "1.6.0"],
+    ["1.5.0", "2.0.0", ["1.5.1", "2.0.0"], "1.5.1"],
+    ["1.9.0", "2.0.0", ["1.10.0", "2.0.0"], "1.10.0"],
+  ])(
+    "refuses %s with latest %s when %j has the newer %s in its major",
+    (version, latest, versions, newer) => {
+      expect(() => distTag(version, latest, versions)).toThrow(
+        `lower than ${newer}, already published in major 1: refusing to move latest-v1 backwards`,
+      );
+    },
+  );
+
+  it.each([
+    // older 1.x, other majors and 1.x prereleases do not block a 1.x backport
+    [
+      "1.5.0",
+      "2.0.0",
+      ["1.4.0", "1.5.0-beta.1", "1.6.0-rc.1", "2.0.0", "3.0.0-0"],
+    ],
+    ["1.5.0", "2.0.0", ["0.9.0", "11.0.0", "2.0.0"]],
+    ["1.5.0", "2.0.0", []],
+    // the version itself is not "newer" (republishing is refused by plan())
+    ["1.5.0", "2.0.0", ["1.5.0", "2.0.0"]],
+  ])(
+    "publishes %s with latest %s under latest-v1 given %j",
+    (version, latest, versions) => {
+      expect(distTag(version, latest, versions)).toBe("latest-v1");
+    },
+  );
+
+  it.each([
     ["1.0.1", "2.0.0"],
     ["0.9.0", "1.0.0"],
     ["1.1.0-beta.1", "1.0.0"],
@@ -177,6 +209,12 @@ describe("plan", () => {
     expect(() =>
       plan({ ...base, dryRun: true, latest: "1.2.3", versions: ["1.2.3"] }),
     ).toThrow("version 1.2.3 is already published on npm");
+  });
+
+  it("refuses a backport below a newer release of its major", () => {
+    expect(() =>
+      plan({ ...base, latest: "2.0.0", versions: ["1.3.0", "2.0.0"] }),
+    ).toThrow("refusing to move latest-v1 backwards");
   });
 
   it("picks the dist-tag from the latest version on npm", () => {

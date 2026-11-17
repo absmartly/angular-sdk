@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
+import { spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -13,6 +14,7 @@ type Step = {
   with?: Record<string, string>;
 };
 type Workflow = {
+  concurrency: { group: string; "cancel-in-progress": boolean };
   on: {
     push: { tags: string[]; branches?: string[] };
     workflow_dispatch: {
@@ -67,24 +69,53 @@ describe("publish.yml", () => {
     );
   });
 
+  it("never cancels a running publish", () => {
+    expect(workflow.concurrency["cancel-in-progress"]).toBe(false);
+  });
+
+  it("installs, checks, tests and builds before the release checks", () => {
+    const names = job.steps.map((s) => s.name);
+    const required: [string, string][] = [
+      ["Install dependencies", "npm ci --ignore-scripts"],
+      ["Check formatting", "npm run check-format"],
+      ["Test", "npm test"],
+      ["Build", "npm run build"],
+    ];
+    const planIndex = names.indexOf("Check tag, version and npm dist-tag");
+    expect(planIndex).toBeGreaterThan(
+      names.indexOf("Upgrade npm for trusted publishing"),
+    );
+    for (const [name, run] of required) {
+      expect(step(name).run).toBe(run);
+      expect(names.indexOf(name)).toBeLessThan(planIndex);
+    }
+    expect(names.indexOf("Upgrade npm for trusted publishing")).toBeLessThan(
+      names.indexOf("Install dependencies"),
+    );
+  });
+
   it("checks tag, version and dist-tag before publishing", () => {
     const names = job.steps.map((s) => s.name);
     const plan = step("Check tag, version and npm dist-tag");
     expect(plan.run).toContain("TAG_ARGS=$(node scripts/release-plan.cjs)");
+    expect(plan.run).toContain('echo "args=${TAG_ARGS}" >> "$GITHUB_OUTPUT"');
     expect(plan.env).toEqual({
       REF_TYPE: "${{ github.ref_type }}",
       REF_NAME: "${{ github.ref_name }}",
     });
-    for (const before of [
-      "Upgrade npm for trusted publishing",
-      "Install dependencies",
-      "Test",
-      "Build",
-    ]) {
-      expect(names.indexOf(before)).toBeLessThan(names.indexOf(plan.name));
-    }
+    expect(names.indexOf(plan.name)).toBeLessThan(
+      names.indexOf("Publish to npm (dry run)"),
+    );
     expect(names.indexOf(plan.name)).toBeLessThan(
       names.indexOf("Publish to npm"),
+    );
+  });
+
+  it("writes the .npmrc that reads NODE_AUTH_TOKEN", () => {
+    // setup-node only writes it when registry-url is set; without it the token
+    // fallback has nothing to read NODE_AUTH_TOKEN and the publish fails.
+    expect(step("Setup Node.js").with?.["registry-url"]).toBe(
+      "https://registry.npmjs.org",
     );
   });
 
@@ -113,12 +144,41 @@ describe("publish.yml", () => {
     for (const s of job.steps) expect(s.run ?? "").not.toMatch(/dist-tag\s/);
   });
 
-  it("requires npm >= 11.5.1 on Node 22+", () => {
+  it("requires Node 22+ and installs the latest npm", () => {
     expect(
       Number(step("Setup Node.js").with?.["node-version"]),
     ).toBeGreaterThanOrEqual(22);
-    const upgrade = step("Upgrade npm for trusted publishing").run ?? "";
-    expect(upgrade).toContain("npm install -g npm@latest");
-    expect(upgrade).toContain("11.5.1");
+    expect(step("Upgrade npm for trusted publishing").run).toContain(
+      "npm install -g npm@latest",
+    );
+  });
+
+  describe("npm version gate", () => {
+    // Runs the step's own inline check, with `npm --version` faked.
+    const script = step("Upgrade npm for trusted publishing").run ?? "";
+    const check = /node -e '([\s\S]*?)' "\$NPM_VERSION"/.exec(script)?.[1];
+
+    it("is present", () => {
+      expect(check).toBeDefined();
+    });
+
+    it.each([
+      ["11.5.1", 0],
+      ["11.5.2", 0],
+      ["11.6.0", 0],
+      ["11.21.2", 0],
+      ["12.0.0", 0],
+      ["12.2.2", 0],
+      ["11.5.0", 1],
+      ["11.4.9", 1],
+      ["10.99.99", 1],
+      ["9.2.0", 1],
+    ])("npm %s -> exit %d", (version, status) => {
+      const result = spawnSync(process.execPath, ["-e", check ?? "", version], {
+        encoding: "utf8",
+      });
+      expect(result.status).toBe(status);
+      if (status) expect(result.stderr).toContain("older than 11.5.1");
+    });
   });
 });

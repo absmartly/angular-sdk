@@ -19,7 +19,9 @@
 //     (Not `v<major>`: npm rejects dist-tags that are valid semver ranges, and `v1`
 //     is one.)
 //   - A release lower than latest within the same major (1.4.1 while 1.5.0 is latest)
-//     is refused, since `npm publish` would move latest backwards. Publish such a
+//     is refused, since `npm publish` would move latest backwards. So is a lower-major
+//     release below a stable version already published in its major (1.5.0 when
+//     1.6.0 exists), which would move latest-v<major> backwards. Publish such a
 //     backport by hand.
 //   - Nothing on npm yet (first publish) means the release becomes latest.
 //
@@ -51,7 +53,7 @@ function compareCore(a, b) {
   return 0;
 }
 
-function distTag(version, latest) {
+function distTag(version, latest, versions = []) {
   const next = parse(version);
   if (next.prerelease !== undefined) {
     const id = next.prerelease.split(".")[0];
@@ -62,10 +64,28 @@ function distTag(version, latest) {
   // Equal cores also become latest: a stable release outranks its own prerelease,
   // and republishing the same version is caught by the already-published check.
   if (compareCore(next, current) >= 0) return "latest";
-  if (next.core[0] < current.core[0]) return `latest-v${next.core[0]}`;
-  throw new Error(
-    `${version} is lower than latest ${latest} in the same major: refusing to move latest backwards`,
-  );
+  if (next.core[0] === current.core[0]) {
+    throw new Error(
+      `${version} is lower than latest ${latest} in the same major: refusing to move latest backwards`,
+    );
+  }
+  // npm moves the tag to whatever is published under it, so a backport below the
+  // newest stable release of its major would move latest-v<major> backwards.
+  const newer = versions.find((v) => {
+    const other = SEMVER.test(v) && parse(v);
+    return (
+      other &&
+      other.prerelease === undefined &&
+      other.core[0] === next.core[0] &&
+      compareCore(other, next) > 0
+    );
+  });
+  if (newer) {
+    throw new Error(
+      `${version} is lower than ${newer}, already published in major ${next.core[0]}: refusing to move latest-v${next.core[0]} backwards`,
+    );
+  }
+  return `latest-v${next.core[0]}`;
 }
 
 function checkRef(version, { refType, refName, dryRun }) {
@@ -117,7 +137,7 @@ function plan({ version, refType, refName, dryRun, latest, versions }) {
   if (versions.includes(version)) {
     throw new Error(`version ${version} is already published on npm`);
   }
-  return { tag: distTag(version, latest), notices };
+  return { tag: distTag(version, latest, versions), notices };
 }
 
 module.exports = { distTag, plan, published };
