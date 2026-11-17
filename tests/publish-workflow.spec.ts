@@ -255,12 +255,14 @@ describe("publish.yml", () => {
       dir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-workflow-"));
       fs.mkdirSync(path.join(dir, "bin"));
       fs.mkdirSync(path.join(dir, "scripts"));
-      // npm stub: logs its arguments, answers --version from FAKE_NPM_VERSION.
+      // npm stub: logs its arguments, answers --version from FAKE_NPM_VERSION,
+      // and fails `install` when FAKE_NPM_INSTALL_FAILS is set.
       fs.writeFileSync(
         path.join(dir, "bin", "npm"),
         `#!/usr/bin/env node
 require("fs").appendFileSync(process.env.NPM_LOG, JSON.stringify(process.argv.slice(2)) + "\\n");
 if (process.argv[2] === "--version") console.log(process.env.FAKE_NPM_VERSION);
+if (process.argv[2] === "install" && process.env.FAKE_NPM_INSTALL_FAILS) process.exit(1);
 `,
       );
       fs.chmodSync(path.join(dir, "bin", "npm"), 0o755);
@@ -356,6 +358,15 @@ process.stdout.write(process.env.FAKE_DIST_TAG);
         expect(result.status).toBe(status);
         if (status) expect(result.stderr).toContain("older than 11.5.1");
       });
+    });
+
+    it("stops when the npm upgrade fails", () => {
+      const result = runStep("Upgrade npm for trusted publishing", {
+        FAKE_NPM_VERSION: "12.2.2",
+        FAKE_NPM_INSTALL_FAILS: "1",
+      });
+      expect(result.status).not.toBe(0);
+      expect(result.npmCalls).toEqual([["install", "-g", "npm@latest"]]);
     });
 
     describe("release plan to npm publish", () => {
