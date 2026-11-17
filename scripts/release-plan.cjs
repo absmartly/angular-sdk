@@ -5,7 +5,7 @@
 //
 //   REF_TYPE=tag REF_NAME=v1.2.3 DRY_RUN=false node scripts/release-plan.cjs
 //
-// Prints the extra `npm publish` arguments (empty, or `--tag <name>`) on stdout and
+// Prints the dist-tag for `npm publish --tag` (`latest` or another name) on stdout and
 // exits non-zero, with the reason on stderr, when the release must not be published.
 //
 // - The ref must be the tag v<package.json version>. A dry run may also run from a
@@ -164,7 +164,7 @@ if (require.main === module) {
     });
     for (const notice of notices) process.stderr.write(`::notice::${notice}\n`);
     process.stderr.write(`dist-tag: ${tag}\n`);
-    process.stdout.write(tag === "latest" ? "" : `--tag ${tag}`);
+    process.stdout.write(tag);
   } catch (error) {
     process.stderr.write(`::error::${error.message}\n`);
     process.exit(1);

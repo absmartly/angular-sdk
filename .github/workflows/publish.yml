@@ -66,6 +66,7 @@ jobs:
           NPM_VERSION=$(npm --version)
           echo "npm ${NPM_VERSION}"
           # Trusted publishing (OIDC) needs npm >= 11.5.1.
+          # shellcheck disable=SC2016 # single quotes: the JS is not shell-expanded
           node -e '
             const [a, b, c] = process.argv[1].split(".").map(Number);
             const ok = a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1)));
@@ -91,26 +92,25 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
         # Fails unless the tag is v<package.json version> and that version is not
-        # on npm yet. Prints "--tag latest-v<major>" when this release must not
-        # become latest (a 1.x patch while 2.x is latest), "--tag <pre>" for
-        # prereleases, and nothing otherwise. See scripts/release-plan.cjs.
+        # on npm yet. Prints the dist-tag: latest-v<major> when this release must
+        # not become latest (a 1.x patch while 2.x is latest), alpha/beta/rc/next
+        # for prereleases, latest otherwise. See scripts/release-plan.cjs.
         run: |
           set -euo pipefail
-          TAG_ARGS=$(node scripts/release-plan.cjs)
-          echo "args=${TAG_ARGS}" >> "$GITHUB_OUTPUT"
+          DIST_TAG=$(node scripts/release-plan.cjs)
+          echo "dist-tag=${DIST_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Publish to npm (dry run)
         if: env.DRY_RUN == 'true'
         env:
-          TAG_ARGS: ${{ steps.plan.outputs.args }}
-        # TAG_ARGS is unquoted on purpose: it is empty or "--tag <name>".
-        run: npm publish --provenance --access public $TAG_ARGS --dry-run
+          DIST_TAG: ${{ steps.plan.outputs.dist-tag }}
+        run: npm publish --provenance --access public --tag "$DIST_TAG" --dry-run
 
       - name: Publish to npm
         if: env.DRY_RUN != 'true'
         env:
-          TAG_ARGS: ${{ steps.plan.outputs.args }}
+          DIST_TAG: ${{ steps.plan.outputs.dist-tag }}
           # Fallback only: used when trusted publishing (OIDC) is not configured,
           # e.g. the first release of this package. See the header comment.
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance --access public $TAG_ARGS
+        run: npm publish --provenance --access public --tag "$DIST_TAG"

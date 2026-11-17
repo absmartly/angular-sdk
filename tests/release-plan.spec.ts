@@ -284,7 +284,7 @@ else process.exit(2);
   it("publishes as latest when the package was never published (E404)", () => {
     const result = run({ FAKE_ERROR: E404 });
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe("");
+    expect(result.stdout).toBe("latest");
     expect(result.stderr).toContain("latest on npm: <none>");
     expect(result.calls).toEqual([
       ["view", "@absmartly/angular-sdk", "versions", "--json"],
@@ -307,7 +307,7 @@ else process.exit(2);
       FAKE_LATEST: `${major + 1n}.0.0`,
     });
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe(`--tag latest-v${major}`);
+    expect(result.stdout).toBe(`latest-v${major}`);
     expect(result.calls).toEqual([
       ["view", "@absmartly/angular-sdk", "versions", "--json"],
       ["view", "@absmartly/angular-sdk", "dist-tags.latest"],
@@ -333,7 +333,7 @@ else process.exit(2);
       FAKE_LATEST: other,
     });
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe(`--tag latest-v${VERSION.split(".")[0]}`);
+    expect(result.stdout).toBe(`latest-v${VERSION.split(".")[0]}`);
   });
 
   it("refuses a tag that does not match package.json", () => {

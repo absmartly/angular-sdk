@@ -8,6 +8,7 @@ const yaml = require("js-yaml") as { load: (text: string) => unknown };
 
 type Step = {
   name: string;
+  id?: string;
   if?: string;
   run?: string;
   env?: Record<string, string>;
@@ -97,8 +98,10 @@ describe("publish.yml", () => {
   it("checks tag, version and dist-tag before publishing", () => {
     const names = job.steps.map((s) => s.name);
     const plan = step("Check tag, version and npm dist-tag");
-    expect(plan.run).toContain("TAG_ARGS=$(node scripts/release-plan.cjs)");
-    expect(plan.run).toContain('echo "args=${TAG_ARGS}" >> "$GITHUB_OUTPUT"');
+    expect(plan.run).toContain("DIST_TAG=$(node scripts/release-plan.cjs)");
+    expect(plan.run).toContain(
+      'echo "dist-tag=${DIST_TAG}" >> "$GITHUB_OUTPUT"',
+    );
     expect(plan.env).toEqual({
       REF_TYPE: "${{ github.ref_type }}",
       REF_NAME: "${{ github.ref_name }}",
@@ -119,23 +122,41 @@ describe("publish.yml", () => {
     );
   });
 
+  it("feeds the release check's output to both publish steps", () => {
+    // A lost or renamed id leaves DIST_TAG empty, and npm publish then fails
+    // (or, without --tag, would make a 1.x patch latest).
+    const id = step("Check tag, version and npm dist-tag").id;
+    expect(id).toBe("plan");
+    for (const name of ["Publish to npm (dry run)", "Publish to npm"]) {
+      expect(step(name).env?.DIST_TAG).toBe(
+        `\${{ steps.${id}.outputs.dist-tag }}`,
+      );
+    }
+  });
+
+  it("does not leave the GitHub token in the checkout", () => {
+    expect(step("Checkout code").with?.["persist-credentials"]).toBe(false);
+  });
+
   it("dry run: npm publish --dry-run, without the token", () => {
     const dry = step("Publish to npm (dry run)");
     expect(dry.if).toBe("env.DRY_RUN == 'true'");
     expect(dry.run).toBe(
-      "npm publish --provenance --access public $TAG_ARGS --dry-run",
+      'npm publish --provenance --access public --tag "$DIST_TAG" --dry-run',
     );
-    expect(dry.env).toEqual({ TAG_ARGS: "${{ steps.plan.outputs.args }}" });
+    expect(dry.env).toEqual({
+      DIST_TAG: "${{ steps.plan.outputs.dist-tag }}",
+    });
   });
 
   it("real run: npm publish with provenance, dist-tag and the token fallback", () => {
     const publish = step("Publish to npm");
     expect(publish.if).toBe("env.DRY_RUN != 'true'");
     expect(publish.run).toBe(
-      "npm publish --provenance --access public $TAG_ARGS",
+      'npm publish --provenance --access public --tag "$DIST_TAG"',
     );
     expect(publish.env).toEqual({
-      TAG_ARGS: "${{ steps.plan.outputs.args }}",
+      DIST_TAG: "${{ steps.plan.outputs.dist-tag }}",
       NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}",
     });
   });
