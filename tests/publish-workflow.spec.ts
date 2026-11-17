@@ -1,6 +1,7 @@
-import { describe, expect, it } from "@jest/globals";
+import { afterAll, beforeAll, describe, expect, it } from "@jest/globals";
 import { spawnSync } from "child_process";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -243,32 +244,167 @@ describe("publish.yml", () => {
     );
   });
 
-  describe("npm version gate", () => {
-    // Runs the step's own inline check, with `npm --version` faked.
-    const script = step("Upgrade npm for trusted publishing").run ?? "";
-    const check = /node -e '([\s\S]*?)' "\$NPM_VERSION"/.exec(script)?.[1];
+  // The tests below execute the steps' own shell, the way GitHub runs
+  // `shell: bash` (bash --noprofile --norc -eo pipefail), with npm and the
+  // release planner replaced by stubs, so a changed command or an early exit in
+  // the step is caught, not just a changed string.
+  describe("step shell", () => {
+    let dir: string;
 
-    it("is present", () => {
-      expect(check).toBeDefined();
+    beforeAll(() => {
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-workflow-"));
+      fs.mkdirSync(path.join(dir, "bin"));
+      fs.mkdirSync(path.join(dir, "scripts"));
+      // npm stub: logs its arguments, answers --version from FAKE_NPM_VERSION.
+      fs.writeFileSync(
+        path.join(dir, "bin", "npm"),
+        `#!/usr/bin/env node
+require("fs").appendFileSync(process.env.NPM_LOG, JSON.stringify(process.argv.slice(2)) + "\\n");
+if (process.argv[2] === "--version") console.log(process.env.FAKE_NPM_VERSION);
+`,
+      );
+      fs.chmodSync(path.join(dir, "bin", "npm"), 0o755);
+      // Planner stub: prints FAKE_DIST_TAG, or fails when it is unset.
+      fs.writeFileSync(
+        path.join(dir, "scripts", "release-plan.cjs"),
+        `if (!process.env.FAKE_DIST_TAG) { console.error("::error::refused"); process.exit(1); }
+process.stdout.write(process.env.FAKE_DIST_TAG);
+`,
+      );
     });
 
-    it.each([
-      ["11.5.1", 0],
-      ["11.5.2", 0],
-      ["11.6.0", 0],
-      ["11.21.2", 0],
-      ["12.0.0", 0],
-      ["12.2.2", 0],
-      ["11.5.0", 1],
-      ["11.4.9", 1],
-      ["10.99.99", 1],
-      ["9.2.0", 1],
-    ])("npm %s -> exit %d", (version, status) => {
-      const result = spawnSync(process.execPath, ["-e", check ?? "", version], {
-        encoding: "utf8",
+    afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+    // Resolves the ${{ ... }} expressions this workflow's steps use.
+    function resolve(value: string, outputs: Record<string, string>) {
+      return value.replace(/\$\{\{\s*([^}]+?)\s*\}\}/g, (_, expr) => {
+        const m = /^steps\.plan\.outputs\.(.+)$/.exec(expr);
+        if (m) return outputs[m[1]] ?? "";
+        if (expr === "secrets.NPM_TOKEN") return "npm-token";
+        if (expr === "github.ref_type") return "tag";
+        if (expr === "github.ref_name") return "v1.2.3";
+        throw new Error(`unexpected expression ${expr}`);
       });
-      expect(result.status).toBe(status);
-      if (status) expect(result.stderr).toContain("older than 11.5.1");
+    }
+
+    function runStep(
+      name: string,
+      env: Record<string, string> = {},
+      outputs: Record<string, string> = {},
+    ) {
+      const s = step(name);
+      const log = path.join(dir, `npm-${Math.random()}.log`);
+      const output = path.join(dir, `output-${Math.random()}`);
+      fs.writeFileSync(log, "");
+      fs.writeFileSync(output, "");
+      const stepEnv = Object.fromEntries(
+        Object.entries(s.env ?? {}).map(([k, v]) => [k, resolve(v, outputs)]),
+      );
+      const result = spawnSync(
+        "bash",
+        ["--noprofile", "--norc", "-eo", "pipefail", "-c", s.run ?? ""],
+        {
+          cwd: dir,
+          encoding: "utf8",
+          env: {
+            PATH: `${path.join(dir, "bin")}:${path.dirname(process.execPath)}:/usr/bin:/bin`,
+            NPM_LOG: log,
+            GITHUB_OUTPUT: output,
+            ...stepEnv,
+            ...env,
+          },
+        },
+      );
+      const npmCalls = fs
+        .readFileSync(log, "utf8")
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as string[]);
+      const stepOutputs = Object.fromEntries(
+        fs
+          .readFileSync(output, "utf8")
+          .split("\n")
+          .filter(Boolean)
+          .map((line) => [
+            line.slice(0, line.indexOf("=")),
+            line.slice(line.indexOf("=") + 1),
+          ]),
+      );
+      return { ...result, npmCalls, outputs: stepOutputs, env: stepEnv };
+    }
+
+    describe("npm upgrade and version gate", () => {
+      it.each([
+        ["11.5.1", 0],
+        ["11.5.2", 0],
+        ["11.6.0", 0],
+        ["11.21.2", 0],
+        ["12.0.0", 0],
+        ["12.2.2", 0],
+        ["11.5.0", 1],
+        ["11.4.9", 1],
+        ["10.99.99", 1],
+        ["9.2.0", 1],
+      ])("npm %s -> exit %d", (version, status) => {
+        const result = runStep("Upgrade npm for trusted publishing", {
+          FAKE_NPM_VERSION: version,
+        });
+        expect(result.npmCalls).toEqual([
+          ["install", "-g", "npm@latest"],
+          ["--version"],
+        ]);
+        expect(result.status).toBe(status);
+        if (status) expect(result.stderr).toContain("older than 11.5.1");
+      });
+    });
+
+    describe("release plan to npm publish", () => {
+      it.each(["latest", "latest-v1", "beta", "next"])(
+        "publishes with --tag %s from the plan",
+        (tag) => {
+          const plan = runStep("Check tag, version and npm dist-tag", {
+            FAKE_DIST_TAG: tag,
+          });
+          expect(plan.status).toBe(0);
+          expect(plan.outputs).toEqual({ "dist-tag": tag });
+          expect(plan.env).toEqual({ REF_TYPE: "tag", REF_NAME: "v1.2.3" });
+
+          const dry = runStep("Publish to npm (dry run)", {}, plan.outputs);
+          expect(dry.status).toBe(0);
+          expect(dry.npmCalls).toEqual([
+            [
+              "publish",
+              "--provenance",
+              "--access",
+              "public",
+              "--tag",
+              tag,
+              "--dry-run",
+            ],
+          ]);
+          expect(dry.env.NODE_AUTH_TOKEN).toBeUndefined();
+
+          const real = runStep("Publish to npm", {}, plan.outputs);
+          expect(real.status).toBe(0);
+          expect(real.npmCalls).toEqual([
+            ["publish", "--provenance", "--access", "public", "--tag", tag],
+          ]);
+          expect(real.env.NODE_AUTH_TOKEN).toBe("npm-token");
+        },
+      );
+
+      it("fails, writing no dist-tag, when the planner refuses", () => {
+        const plan = runStep("Check tag, version and npm dist-tag");
+        expect(plan.status).not.toBe(0);
+        expect(plan.outputs).toEqual({});
+      });
+
+      it("passes an empty --tag, which npm rejects, if the plan output is lost", () => {
+        const real = runStep("Publish to npm", {}, {});
+        expect(real.npmCalls).toEqual([
+          ["publish", "--provenance", "--access", "public", "--tag", ""],
+        ]);
+      });
     });
   });
 });
