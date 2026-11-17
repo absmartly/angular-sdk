@@ -10,7 +10,7 @@
 //
 // - The ref must be the tag v<package.json version>. A dry run may also run from a
 //   branch, where there is no tag to compare.
-// - The version must not already be on npm (a dry run only warns).
+// - The version must not already be on npm.
 // - Dist-tag:
 //   - A prerelease (1.2.0-beta.1) never becomes latest: it is published under its
 //     first prerelease identifier when that is alpha/beta/rc, else under `next`.
@@ -112,10 +112,10 @@ function plan({ version, refType, refName, dryRun, latest, versions }) {
       `dry run on ${refType} ${refName}: no tag to compare with v${version}`,
     );
   }
+  // Also fatal on a dry run: npm publish --dry-run refuses it too, and a rehearsal
+  // should fail where the real publish would.
   if (versions.includes(version)) {
-    const message = `version ${version} is already published on npm`;
-    if (!dryRun) throw new Error(message);
-    notices.push(`${message}; a real publish would fail`);
+    throw new Error(`version ${version} is already published on npm`);
   }
   return { tag: distTag(version, latest), notices };
 }

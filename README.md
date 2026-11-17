@@ -456,9 +456,9 @@ Releases are published to npm by `.github/workflows/publish.yml` when a `v*` tag
 
 The workflow runs the format check, tests and build, checks that the version is not on npm yet, then runs `npm publish --provenance --access public`. A release whose major is lower than the current `latest` on npm is published under `latest-v<major>` (for example `latest-v1`) so it never becomes `latest`. Prereleases go to `alpha`, `beta`, `rc` or `next`. A release lower than `latest` in the same major is refused.
 
-To rehearse a release, run the workflow manually (Actions, Publish, Run workflow) with `dry_run` checked (the default). It runs every step and ends with `npm publish --dry-run`.
+To rehearse a release, run the workflow manually (Actions, Publish, Run workflow) with `dry_run` checked (the default). It runs every step and ends with `npm publish --dry-run`. Run from a `v*` tag, it also checks the tag against the version. Run from a branch, there is no tag to check. A dry run never receives `NPM_TOKEN`, so it does not exercise the token fallback, and it fails if the version is already on npm.
 
-Authentication uses npm Trusted Publishing (OIDC) from the `npm` environment. Until a trusted publisher is configured on npmjs.com, which npm only allows once the package exists, the workflow falls back to the `NPM_TOKEN` repository secret.
+Authentication uses npm Trusted Publishing (OIDC) from the `npm` environment. Until a trusted publisher is configured on npmjs.com, which npm only allows once the package exists, the workflow falls back to the `NPM_TOKEN` secret.
 
 ## About A/B Smartly
 

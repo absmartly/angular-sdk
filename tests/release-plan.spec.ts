@@ -172,15 +172,11 @@ describe("plan", () => {
     ).toThrow("version 1.2.3 is already published on npm");
   });
 
-  it("only warns about an already published version on a dry run", () => {
-    expect(
+  it("refuses an already published version on a dry run too", () => {
+    // npm publish --dry-run fails on it as well
+    expect(() =>
       plan({ ...base, dryRun: true, latest: "1.2.3", versions: ["1.2.3"] }),
-    ).toEqual({
-      tag: "latest",
-      notices: [
-        "version 1.2.3 is already published on npm; a real publish would fail",
-      ],
-    });
+    ).toThrow("version 1.2.3 is already published on npm");
   });
 
   it("picks the dist-tag from the latest version on npm", () => {
