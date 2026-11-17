@@ -32,8 +32,9 @@ on:
 
 # One release at a time for the whole package, not per tag: two tags planned in
 # parallel (1.1.0 and 2.0.0 while 1.0.0 is latest) would both choose latest. Queued
-# runs wait in order (queue: max) instead of replacing each other, and a running
-# publish is never cancelled.
+# runs all wait (queue: max) instead of replacing each other, roughly first in,
+# first out (GitHub does not guarantee the order), and a running publish is never
+# cancelled.
 concurrency:
   group: publish-npm
   cancel-in-progress: false
