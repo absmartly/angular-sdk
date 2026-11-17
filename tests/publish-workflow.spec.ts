@@ -17,7 +17,11 @@ type Step = {
   with?: Record<string, string>;
 };
 type Workflow = {
-  concurrency: { group: string; "cancel-in-progress": boolean };
+  concurrency: {
+    group: string;
+    "cancel-in-progress": boolean;
+    queue?: string;
+  };
   on: {
     push: { tags: string[]; branches?: string[] };
     workflow_dispatch: {
@@ -76,6 +80,13 @@ describe("publish.yml", () => {
 
   it("never cancels a running publish", () => {
     expect(workflow.concurrency["cancel-in-progress"]).toBe(false);
+  });
+
+  it("runs one release at a time for the whole package, queueing the rest", () => {
+    // Per-tag groups let 1.1.0 and 2.0.0 both plan "latest" in parallel; the
+    // default queue (single) would drop a waiting release when a third arrives.
+    expect(workflow.concurrency.group).toBe("publish-npm");
+    expect(workflow.concurrency.queue).toBe("max");
   });
 
   it("installs, checks, tests and builds before the release checks", () => {

@@ -26,7 +26,6 @@ const SCRIPT = path.join(ROOT, "scripts", "release-plan.cjs");
 const PKG = JSON.parse(
   fs.readFileSync(path.join(ROOT, "package.json"), "utf8"),
 );
-const VERSION = PKG.version as string;
 
 describe("package.json", () => {
   it("names the publishing repository, which npm provenance requires", () => {
@@ -225,6 +224,10 @@ describe("plan", () => {
 });
 
 describe("CLI", () => {
+  // The CLI runs from a scratch directory with its own package.json, so these
+  // cases do not depend on the repository's current version (a prerelease
+  // version would otherwise change every expected dist-tag).
+  const NAME = "@absmartly/angular-sdk";
   let dir: string;
   let fakeNpm: string;
 
@@ -251,20 +254,28 @@ else process.exit(2);
     fs.chmodSync(fakeNpm, 0o755);
   });
 
+  function writePackage(version: string) {
+    fs.writeFileSync(
+      path.join(dir, "package.json"),
+      JSON.stringify({ name: NAME, version }),
+    );
+  }
+
   afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-  function run(env: Record<string, string>) {
+  function run(env: Record<string, string>, version = "1.2.3") {
+    writePackage(version);
     const log = path.join(dir, `log-${Math.random()}`);
     fs.writeFileSync(log, "");
     const result = spawnSync(process.execPath, [SCRIPT], {
-      cwd: ROOT,
+      cwd: dir,
       encoding: "utf8",
       env: {
         PATH: process.env.PATH,
         NPM_BIN: fakeNpm,
         FAKE_LOG: log,
         REF_TYPE: "tag",
-        REF_NAME: `v${VERSION}`,
+        REF_NAME: `v${version}`,
         DRY_RUN: "false",
         ...env,
       },
@@ -301,13 +312,12 @@ else process.exit(2);
   });
 
   it("publishes under latest-v<major> when latest has a higher major", () => {
-    const major = BigInt(VERSION.split(".")[0]);
     const result = run({
-      FAKE_VERSIONS: JSON.stringify([`${major + 1n}.0.0`]),
-      FAKE_LATEST: `${major + 1n}.0.0`,
+      FAKE_VERSIONS: JSON.stringify(["1.2.2", "2.0.0"]),
+      FAKE_LATEST: "2.0.0",
     });
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe(`latest-v${major}`);
+    expect(result.stdout).toBe("latest-v1");
     expect(result.calls).toEqual([
       ["view", "@absmartly/angular-sdk", "versions", "--json"],
       ["view", "@absmartly/angular-sdk", "dist-tags.latest"],
@@ -316,24 +326,36 @@ else process.exit(2);
 
   it("reads a single published version, which npm prints as a string", () => {
     const result = run({
-      FAKE_VERSIONS: JSON.stringify(VERSION),
-      FAKE_LATEST: VERSION,
+      FAKE_VERSIONS: JSON.stringify("1.2.3"),
+      FAKE_LATEST: "1.2.3",
     });
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
-      `::error::version ${VERSION} is already published on npm`,
+      "::error::version 1.2.3 is already published on npm",
     );
   });
 
   it("compares a single published version exactly, not as a substring", () => {
-    // "11.0.0" contains "1.0.0": a string match would call it already published.
-    const other = `1${VERSION}`;
+    // "11.2.3" contains "1.2.3": a string match would call it already published.
     const result = run({
-      FAKE_VERSIONS: JSON.stringify(other),
-      FAKE_LATEST: other,
+      FAKE_VERSIONS: JSON.stringify("11.2.3"),
+      FAKE_LATEST: "11.2.3",
     });
     expect(result.status).toBe(0);
-    expect(result.stdout).toBe(`latest-v${VERSION.split(".")[0]}`);
+    expect(result.stdout).toBe("latest-v1");
+  });
+
+  it.each([
+    ["1.3.0-beta.1", "beta"],
+    ["1.3.0-rc.0", "rc"],
+    ["2.0.0-0", "next"],
+  ])("publishes prerelease %s under %s", (version, tag) => {
+    const result = run(
+      { FAKE_VERSIONS: '["1.2.3"]', FAKE_LATEST: "1.2.3" },
+      version,
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe(tag);
   });
 
   it("refuses a tag that does not match package.json", () => {
