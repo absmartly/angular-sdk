@@ -11,6 +11,7 @@ type Step = {
   id?: string;
   if?: string;
   "continue-on-error"?: boolean | string;
+  uses?: string;
   run?: string;
   env?: Record<string, string>;
   with?: Record<string, string>;
@@ -167,6 +168,38 @@ describe("publish.yml", () => {
   it("never runs npm dist-tag", () => {
     for (const s of job.steps) {
       expect(s.run ?? "").not.toMatch(/\bnpm\s+dist-tags?\b/);
+    }
+  });
+
+  it("exposes NPM_TOKEN to the real publish step only", () => {
+    // Not to the dry run, and not to npm ci or the tests, which run third-party
+    // code. Checked on the parsed workflow, so a secret anywhere else (workflow
+    // or job env, another step's env or with) is found.
+    const uses: string[] = [];
+    const walk = (node: unknown, where: string) => {
+      if (typeof node === "string") {
+        if (/\bsecrets\b/.test(node)) uses.push(`${where}: ${node}`);
+      } else if (Array.isArray(node)) {
+        node.forEach((item, i) =>
+          walk(item, `${where}[${(item as Step)?.name ?? i}]`),
+        );
+      } else if (node && typeof node === "object") {
+        for (const [key, value] of Object.entries(node)) {
+          walk(value, `${where}.${key}`);
+        }
+      }
+    };
+    walk(workflow, "workflow");
+    expect(uses).toEqual([
+      "workflow.jobs.publish.steps[Publish to npm].env.NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}",
+    ]);
+  });
+
+  it("uses no dependency cache in the release job", () => {
+    // A cache written by another workflow run must not feed a published artifact.
+    for (const s of job.steps) {
+      expect(Object.keys(s.with ?? {})).not.toContain("cache");
+      expect(s.uses ?? "").not.toMatch(/^actions\/cache\b/);
     }
   });
 
