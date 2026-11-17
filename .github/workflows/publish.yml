@@ -1,0 +1,158 @@
+# Publishes @absmartly/angular-sdk to npm when a v* tag is pushed.
+#
+# Authentication, in order:
+#   1. npm Trusted Publishing (OIDC). npm >= 11.5.1 exchanges the job's GitHub
+#      OIDC token (id-token: write) for a short-lived publish token. This needs a
+#      trusted publisher on npmjs.com: GitHub Actions, absmartly/angular-sdk,
+#      workflow publish.yml, environment npm.
+#   2. Fallback: the NPM_TOKEN secret, exposed as NODE_AUTH_TOKEN. npm only lets
+#      you add a trusted publisher to a package that already exists, and this
+#      package has never been published, so the first release authenticates with
+#      the token. npm tries OIDC first and only uses the token when OIDC is not
+#      configured. Once trusted publishing is set up, the token can be removed
+#      (delete the NODE_AUTH_TOKEN line below and the secret).
+#
+# Provenance is generated with the same OIDC token either way.
+#
+# workflow_dispatch with dry_run (default true) runs every step, including
+# `npm publish --dry-run`, without publishing.
+
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run every step except the actual npm publish"
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      PACKAGE: "@absmartly/angular-sdk"
+      # push events have no inputs, so this is false for tag pushes.
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          # No dependency cache in the release job: a cache written by another
+          # workflow run must not feed into a published artifact.
+
+      - name: Upgrade npm for trusted publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install -g npm@latest
+          NPM_VERSION=$(npm --version)
+          echo "npm ${NPM_VERSION}"
+          # Trusted publishing (OIDC) needs npm >= 11.5.1.
+          node -e '
+            const [a, b, c] = process.argv[1].split(".").map(Number);
+            const ok = a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1)));
+            if (!ok) { console.error(`npm ${process.argv[1]} is older than 11.5.1`); process.exit(1); }
+          ' "$NPM_VERSION"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Check formatting
+        run: npm run check-format
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Check tag matches package.json version
+        id: version
+        shell: bash
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          echo "package.json version: ${VERSION}"
+          if [ "$REF_TYPE" = "tag" ]; then
+            if [ "$REF_NAME" != "v${VERSION}" ]; then
+              echo "::error::Tag ${REF_NAME} does not match package.json version ${VERSION} (expected v${VERSION})"
+              exit 1
+            fi
+          elif [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::Dry run on ${REF_TYPE} ${REF_NAME}: no tag to compare with v${VERSION}"
+          else
+            echo "::error::Publishing requires a v* tag ref, got ${REF_TYPE} ${REF_NAME}"
+            exit 1
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Decide npm dist-tag
+        id: tag
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # A missing package (first publish) is E404; any other failure must not
+          # be mistaken for "nothing published yet".
+          if VIEW=$(npm view "$PACKAGE" --json 2>/tmp/npm-view.err); then
+            LATEST=$(node -e 'const p = JSON.parse(process.argv[1]); console.log(p["dist-tags"]?.latest ?? "")' "$VIEW")
+            if node -e 'const p = JSON.parse(process.argv[1]); const v = [].concat(p.versions ?? []); process.exit(v.includes(process.argv[2]) ? 0 : 1)' "$VIEW" "$VERSION"; then
+              if [ "$DRY_RUN" = "true" ]; then
+                echo "::notice::${PACKAGE}@${VERSION} is already published on npm; a real publish would fail"
+              else
+                echo "::error::${PACKAGE}@${VERSION} is already published on npm"
+                exit 1
+              fi
+            fi
+          elif grep -q E404 /tmp/npm-view.err; then
+            LATEST=""
+          else
+            cat /tmp/npm-view.err >&2
+            exit 1
+          fi
+          echo "Current latest on npm: ${LATEST:-<none>}"
+          # Prints "--tag latest-v<major>" when this release must not become latest
+          # (a 1.x patch while 2.x is latest), "--tag <pre>" for prereleases,
+          # and nothing otherwise.
+          TAG_ARGS=$(node scripts/npm-dist-tag.cjs "$VERSION" "$LATEST")
+          echo "dist-tag args: ${TAG_ARGS:-<none, becomes latest>}"
+          echo "args=${TAG_ARGS}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm (dry run)
+        if: env.DRY_RUN == 'true'
+        env:
+          TAG_ARGS: ${{ steps.tag.outputs.args }}
+        # TAG_ARGS is unquoted on purpose: it is empty or "--tag <name>".
+        run: npm publish --provenance --access public $TAG_ARGS --dry-run
+
+      - name: Publish to npm
+        if: env.DRY_RUN != 'true'
+        env:
+          TAG_ARGS: ${{ steps.tag.outputs.args }}
+          # Fallback only: used when trusted publishing (OIDC) is not configured,
+          # e.g. the first release of this package. See the header comment.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public $TAG_ARGS
