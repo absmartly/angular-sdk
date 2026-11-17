@@ -10,6 +10,7 @@ type Step = {
   name: string;
   id?: string;
   if?: string;
+  "continue-on-error"?: boolean | string;
   run?: string;
   env?: Record<string, string>;
   with?: Record<string, string>;
@@ -24,6 +25,8 @@ type Workflow = {
   };
   jobs: {
     publish: {
+      if?: string;
+      "continue-on-error"?: boolean | string;
       environment: string;
       permissions: Record<string, string>;
       env: Record<string, string>;
@@ -162,7 +165,29 @@ describe("publish.yml", () => {
   });
 
   it("never runs npm dist-tag", () => {
-    for (const s of job.steps) expect(s.run ?? "").not.toMatch(/dist-tag\s/);
+    for (const s of job.steps) {
+      expect(s.run ?? "").not.toMatch(/\bnpm\s+dist-tags?\b/);
+    }
+  });
+
+  it("runs every step on every run and fails on any step failure", () => {
+    // Only the two publish steps are conditional (on DRY_RUN, checked above).
+    // A skipped or fail-open step would publish an untested build, or drop the
+    // npm upgrade and with it OIDC.
+    expect(job.if).toBeUndefined();
+    expect(job["continue-on-error"]).toBeUndefined();
+    for (const s of job.steps) {
+      expect(s["continue-on-error"]).toBeUndefined();
+      if (
+        s.name !== "Publish to npm" &&
+        s.name !== "Publish to npm (dry run)"
+      ) {
+        expect({ step: s.name, if: s.if }).toEqual({
+          step: s.name,
+          if: undefined,
+        });
+      }
+    }
   });
 
   it("requires Node 22+ and installs the latest npm", () => {
