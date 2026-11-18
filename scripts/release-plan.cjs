@@ -14,6 +14,8 @@
 // - Dist-tag:
 //   - A prerelease (1.2.0-beta.1) never becomes latest: it is published under its
 //     first prerelease identifier when that is alpha/beta/rc, else under `next`.
+//     A prerelease lower than one already published under that dist-tag is refused,
+//     since publishing it would move the dist-tag backwards.
 //   - A release whose major is lower than the current latest's (a 1.x patch while 2.x
 //     is latest) is published under `latest-v<major>`, so it never becomes latest.
 //     (Not `v<major>`: npm rejects dist-tags that are valid semver ranges, and `v1`
@@ -53,11 +55,62 @@ function compareCore(a, b) {
   return 0;
 }
 
+// Semver precedence of prerelease identifiers: numeric ones compare numerically and
+// rank below alphanumeric ones, and a shorter list that is a prefix ranks lower.
+function comparePrerelease(a, b) {
+  const x = a.split(".");
+  const y = b.split(".");
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    const xNum = /^\d+$/.test(x[i]);
+    const yNum = /^\d+$/.test(y[i]);
+    if (xNum && yNum) {
+      if (BigInt(x[i]) !== BigInt(y[i]))
+        return BigInt(x[i]) < BigInt(y[i]) ? -1 : 1;
+    } else if (xNum !== yNum) {
+      return xNum ? -1 : 1;
+    } else if (x[i] !== y[i]) {
+      return x[i] < y[i] ? -1 : 1;
+    }
+  }
+  return Math.sign(x.length - y.length);
+}
+
+function compare(a, b) {
+  const core = compareCore(a, b);
+  if (core !== 0) return core;
+  if (a.prerelease === b.prerelease) return 0;
+  if (a.prerelease === undefined) return 1;
+  if (b.prerelease === undefined) return -1;
+  return comparePrerelease(a.prerelease, b.prerelease);
+}
+
+function prereleaseTag(prerelease) {
+  const id = prerelease.split(".")[0];
+  return ["alpha", "beta", "rc"].includes(id) ? id : "next";
+}
+
 function distTag(version, latest, versions = []) {
   const next = parse(version);
   if (next.prerelease !== undefined) {
-    const id = next.prerelease.split(".")[0];
-    return ["alpha", "beta", "rc"].includes(id) ? id : "next";
+    const tag = prereleaseTag(next.prerelease);
+    // As for latest-v<major> below: publishing under the tag moves it, so a
+    // prerelease below one already published under the same tag (1.6.0-beta.1
+    // after 2.1.0-beta.3) would move it backwards.
+    const newer = versions.find((v) => {
+      const other = SEMVER.test(v) && parse(v);
+      return (
+        other &&
+        other.prerelease !== undefined &&
+        prereleaseTag(other.prerelease) === tag &&
+        compare(other, next) > 0
+      );
+    });
+    if (newer) {
+      throw new Error(
+        `${version} is lower than ${newer}, already published under ${tag}: refusing to move ${tag} backwards`,
+      );
+    }
+    return tag;
   }
   if (!latest) return "latest";
   const current = parse(latest);

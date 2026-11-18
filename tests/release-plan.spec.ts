@@ -144,6 +144,41 @@ describe("distTag", () => {
     },
   );
 
+  it.each([
+    ["1.6.0-beta.1", ["2.0.0", "2.1.0-beta.3"], "2.1.0-beta.3", "beta"],
+    ["2.1.0-beta.2", ["2.0.0", "2.1.0-beta.3"], "2.1.0-beta.3", "beta"],
+    ["2.1.0-beta.9", ["2.0.0", "2.1.0-beta.10"], "2.1.0-beta.10", "beta"],
+    ["2.1.0-beta", ["2.0.0", "2.1.0-beta.1"], "2.1.0-beta.1", "beta"],
+    ["2.1.0-beta.1", ["2.0.0", "2.1.0-beta.x"], "2.1.0-beta.x", "beta"],
+    ["2.1.0-0", ["2.0.0", "2.1.0-1"], "2.1.0-1", "next"],
+    ["2.1.0-x", ["2.0.0", "2.1.0-y"], "2.1.0-y", "next"],
+  ])(
+    "refuses prerelease %s when %j has the newer %s under %s",
+    (version, versions, newer, tag) => {
+      expect(() => distTag(version, "2.0.0", versions)).toThrow(
+        `lower than ${newer}, already published under ${tag}: refusing to move ${tag} backwards`,
+      );
+    },
+  );
+
+  it.each([
+    ["2.1.0-beta.4", ["2.0.0", "2.1.0-beta.3"], "beta"],
+    ["2.1.0-beta.10", ["2.0.0", "2.1.0-beta.9"], "beta"],
+    ["2.1.0-beta.1", ["2.0.0", "2.1.0-beta"], "beta"],
+    ["2.1.0-beta.x", ["2.0.0", "2.1.0-beta.1"], "beta"],
+    ["2.2.0-beta.0", ["2.0.0", "2.1.0-beta.3"], "beta"],
+    ["2.1.0-1", ["2.0.0", "2.1.0-0"], "next"],
+    // other dist-tags, stable releases and invalid entries do not block it
+    [
+      "1.6.0-beta.1",
+      ["2.0.0", "2.1.0-rc.1", "2.1.0-alpha.1", "3.0.0", "bad"],
+      "beta",
+    ],
+    ["1.6.0-0", ["2.0.0", "2.1.0-beta.3"], "next"],
+  ])("publishes prerelease %s with %j under %s", (version, versions, tag) => {
+    expect(distTag(version, "2.0.0", versions)).toBe(tag);
+  });
+
   it("rejects an invalid latest version", () => {
     expect(() => distTag("1.0.0", "garbage")).toThrow("not a semver version");
   });
@@ -295,13 +330,22 @@ else process.exit(2);
     ]);
   });
 
-  it("fails on any npm view error other than E404", () => {
-    const result = run({
-      FAKE_ERROR: "npm error code ETIMEDOUT\nnpm error network timeout\n",
-    });
+  it.each([
+    ["ETIMEDOUT", "npm error code ETIMEDOUT\nnpm error network timeout\n"],
+    [
+      "E403",
+      "npm error code E403\nnpm error 403 Forbidden - GET https://registry.npmjs.org/@absmartly%2fangular-sdk\n",
+    ],
+    [
+      "E401",
+      "npm error code E401\nnpm error 401 Unauthorized - GET https://registry.npmjs.org/@absmartly%2fangular-sdk\n",
+    ],
+    ["E4040", "npm error code E4040\n"],
+  ])("fails on npm view error %s, which is not E404", (code, error) => {
+    const result = run({ FAKE_ERROR: error });
     expect(result.status).toBe(1);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("ETIMEDOUT");
+    expect(result.stderr).toContain(code);
   });
 
   it("publishes under latest-v<major> when latest has a higher major", () => {
