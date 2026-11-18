@@ -14,8 +14,9 @@
 // - Dist-tag:
 //   - A prerelease (1.2.0-beta.1) never becomes latest: it is published under its
 //     first prerelease identifier when that is alpha/beta/rc, else under `next`.
-//     A prerelease lower than one already published under that dist-tag is refused,
-//     since publishing it would move the dist-tag backwards.
+//   - Any dist-tag other than latest is read back from npm (dist-tags.<tag>), and a
+//     release lower than the version it points to now is refused, since publishing
+//     would move it backwards.
 //   - A release whose major is lower than the current latest's (a 1.x patch while 2.x
 //     is latest) is published under `latest-v<major>`, so it never becomes latest.
 //     (Not `v<major>`: npm rejects dist-tags that are valid semver ranges, and `v1`
@@ -27,9 +28,10 @@
 //     backport by hand.
 //   - Nothing on npm yet (first publish) means the release becomes latest.
 //
-// npm is queried with `npm view <pkg> dist-tags.latest` and `npm view <pkg> versions
-// --json`, whose output has the same shape on npm 11 and 12 (`npm view <pkg> --json`
-// does not: npm 12 wraps it in an array). NPM_BIN overrides the npm binary for tests.
+// npm is queried with `npm view <pkg> versions --json` and `npm view <pkg>
+// dist-tags.<tag>`, whose output has the same shape on npm 11 and 12 (`npm view <pkg>
+// --json` and `dist-tags --json` do not: npm 12 wraps them in an array). NPM_BIN
+// overrides the npm binary for tests.
 
 const { spawnSync } = require("child_process");
 const fs = require("fs");
@@ -91,27 +93,7 @@ function prereleaseTag(prerelease) {
 
 function distTag(version, latest, versions = []) {
   const next = parse(version);
-  if (next.prerelease !== undefined) {
-    const tag = prereleaseTag(next.prerelease);
-    // As for latest-v<major> below: publishing under the tag moves it, so a
-    // prerelease below one already published under the same tag (1.6.0-beta.1
-    // after 2.1.0-beta.3) would move it backwards.
-    const newer = versions.find((v) => {
-      const other = SEMVER.test(v) && parse(v);
-      return (
-        other &&
-        other.prerelease !== undefined &&
-        prereleaseTag(other.prerelease) === tag &&
-        compare(other, next) > 0
-      );
-    });
-    if (newer) {
-      throw new Error(
-        `${version} is lower than ${newer}, already published under ${tag}: refusing to move ${tag} backwards`,
-      );
-    }
-    return tag;
-  }
+  if (next.prerelease !== undefined) return prereleaseTag(next.prerelease);
   if (!latest) return "latest";
   const current = parse(latest);
   // Equal cores also become latest: a stable release outranks its own prerelease,
@@ -139,6 +121,19 @@ function distTag(version, latest, versions = []) {
     );
   }
   return `latest-v${next.core[0]}`;
+}
+
+// npm moves the dist-tag to the version published under it, so refuse a release
+// below the version the tag points to now (1.6.0-beta.1 while beta is 2.1.0-beta.3).
+// The target is read from the registry, not inferred from versions, because
+// `npm dist-tag add` can point any tag at any version.
+function checkTarget(version, tag, target) {
+  if (!target) return;
+  if (compare(parse(target), parse(version)) > 0) {
+    throw new Error(
+      `${version} is lower than ${target}, the current ${tag} on npm: refusing to move ${tag} backwards`,
+    );
+  }
 }
 
 function checkRef(version, { refType, refName, dryRun }) {
@@ -172,6 +167,14 @@ function npmView(npm, args) {
 function published(npm, pkg) {
   const versions = npmView(npm, [pkg, "versions", "--json"]);
   if (versions === null) return { latest: "", versions: [] };
+  // npm view resolves against the latest dist-tag and prints nothing when there is
+  // none. The registry sets latest on a package's first publish even under --tag, so
+  // this only happens if latest was removed; fail clearly instead of guessing.
+  if (versions === "") {
+    throw new Error(
+      `npm view ${pkg} versions printed nothing: the package has no latest dist-tag. Set one with npm dist-tag add before releasing`,
+    );
+  }
   const latest = npmView(npm, [pkg, "dist-tags.latest"]) ?? "";
   // A package with a single version prints a string instead of an array.
   return { latest, versions: [].concat(JSON.parse(versions)) };
@@ -193,17 +196,20 @@ function plan({ version, refType, refName, dryRun, latest, versions }) {
   return { tag: distTag(version, latest, versions), notices };
 }
 
-module.exports = { distTag, plan, published };
+// The version the dist-tag points to now, or "" when the tag does not exist yet.
+function tagTarget(npm, pkg, tag) {
+  return npmView(npm, [pkg, `dist-tags.${tag}`]) ?? "";
+}
+
+module.exports = { checkTarget, distTag, plan, published };
 
 if (require.main === module) {
   try {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8"),
     );
-    const { latest, versions } = published(
-      process.env.NPM_BIN || "npm",
-      pkg.name,
-    );
+    const npm = process.env.NPM_BIN || "npm";
+    const { latest, versions } = published(npm, pkg.name);
     process.stderr.write(
       `${pkg.name}@${pkg.version}; latest on npm: ${latest || "<none>"}\n`,
     );
@@ -215,6 +221,10 @@ if (require.main === module) {
       latest,
       versions,
     });
+    // latest itself is already checked against the version by plan().
+    if (tag !== "latest" && versions.length > 0) {
+      checkTarget(pkg.version, tag, tagTarget(npm, pkg.name, tag));
+    }
     for (const notice of notices) process.stderr.write(`::notice::${notice}\n`);
     process.stderr.write(`dist-tag: ${tag}\n`);
     process.stdout.write(tag);

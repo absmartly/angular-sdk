@@ -5,17 +5,19 @@ import * as os from "os";
 import * as path from "path";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { distTag, plan } = require("../scripts/release-plan.cjs") as {
-  distTag: (version: string, latest?: string, versions?: string[]) => string;
-  plan: (input: {
-    version: string;
-    refType: string;
-    refName: string;
-    dryRun: boolean;
-    latest: string;
-    versions: string[];
-  }) => { tag: string; notices: string[] };
-};
+const { checkTarget, distTag, plan } =
+  require("../scripts/release-plan.cjs") as {
+    checkTarget: (version: string, tag: string, target: string) => void;
+    distTag: (version: string, latest?: string, versions?: string[]) => string;
+    plan: (input: {
+      version: string;
+      refType: string;
+      refName: string;
+      dryRun: boolean;
+      latest: string;
+      versions: string[];
+    }) => { tag: string; notices: string[] };
+  };
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { validRange } = require("semver") as {
   validRange: (range: string) => string | null;
@@ -144,45 +146,46 @@ describe("distTag", () => {
     },
   );
 
-  it.each([
-    ["1.6.0-beta.1", ["2.0.0", "2.1.0-beta.3"], "2.1.0-beta.3", "beta"],
-    ["2.1.0-beta.2", ["2.0.0", "2.1.0-beta.3"], "2.1.0-beta.3", "beta"],
-    ["2.1.0-beta.9", ["2.0.0", "2.1.0-beta.10"], "2.1.0-beta.10", "beta"],
-    ["2.1.0-beta", ["2.0.0", "2.1.0-beta.1"], "2.1.0-beta.1", "beta"],
-    ["2.1.0-beta.1", ["2.0.0", "2.1.0-beta.x"], "2.1.0-beta.x", "beta"],
-    ["2.1.0-0", ["2.0.0", "2.1.0-1"], "2.1.0-1", "next"],
-    ["2.1.0-beta.1", ["2.0.0", "2.1.0-beta.1a"], "2.1.0-beta.1a", "beta"],
-    ["2.1.0-x", ["2.0.0", "2.1.0-y"], "2.1.0-y", "next"],
-  ])(
-    "refuses prerelease %s when %j has the newer %s under %s",
-    (version, versions, newer, tag) => {
-      expect(() => distTag(version, "2.0.0", versions)).toThrow(
-        `lower than ${newer}, already published under ${tag}: refusing to move ${tag} backwards`,
-      );
-    },
-  );
-
-  it.each([
-    ["2.1.0-beta.4", ["2.0.0", "2.1.0-beta.3"], "beta"],
-    ["2.1.0-beta.10", ["2.0.0", "2.1.0-beta.9"], "beta"],
-    ["2.1.0-beta.1", ["2.0.0", "2.1.0-beta"], "beta"],
-    ["2.1.0-beta.x", ["2.0.0", "2.1.0-beta.1"], "beta"],
-    ["2.2.0-beta.0", ["2.0.0", "2.1.0-beta.3"], "beta"],
-    ["2.1.0-1", ["2.0.0", "2.1.0-0"], "next"],
-    ["2.1.0-beta.1a", ["2.0.0", "2.1.0-beta.1"], "beta"],
-    // other dist-tags, stable releases and invalid entries do not block it
-    [
-      "1.6.0-beta.1",
-      ["2.0.0", "2.1.0-rc.1", "2.1.0-alpha.1", "3.0.0", "bad"],
-      "beta",
-    ],
-    ["1.6.0-0", ["2.0.0", "2.1.0-beta.3"], "next"],
-  ])("publishes prerelease %s with %j under %s", (version, versions, tag) => {
-    expect(distTag(version, "2.0.0", versions)).toBe(tag);
-  });
-
   it("rejects an invalid latest version", () => {
     expect(() => distTag("1.0.0", "garbage")).toThrow("not a semver version");
+  });
+});
+
+describe("checkTarget", () => {
+  it.each([
+    ["1.6.0-beta.1", "beta", "2.1.0-beta.3"],
+    ["2.1.0-beta.2", "beta", "2.1.0-beta.3"],
+    ["2.1.0-beta.9", "beta", "2.1.0-beta.10"],
+    ["2.1.0-beta", "beta", "2.1.0-beta.1"],
+    ["2.1.0-beta.1", "beta", "2.1.0-beta.x"],
+    ["2.1.0-beta.1", "beta", "2.1.0-beta.1a"],
+    ["2.1.0-0", "next", "2.1.0-1"],
+    ["2.1.0-x", "next", "2.1.0-y"],
+    // the tag may point at a version of another channel or a stable release
+    ["2.1.0-beta.1", "beta", "2.2.0-rc.1"],
+    ["2.0.0-beta.5", "beta", "2.0.0"],
+    ["1.5.0", "latest-v1", "1.6.0"],
+  ])("refuses %s while %s is %s", (version, tag, target) => {
+    expect(() => checkTarget(version, tag, target)).toThrow(
+      `${version} is lower than ${target}, the current ${tag} on npm: refusing to move ${tag} backwards`,
+    );
+  });
+
+  it.each([
+    ["2.1.0-beta.4", "beta", "2.1.0-beta.3"],
+    ["2.1.0-beta.10", "beta", "2.1.0-beta.9"],
+    ["2.1.0-beta.1", "beta", "2.1.0-beta"],
+    ["2.1.0-beta.x", "beta", "2.1.0-beta.1"],
+    ["2.1.0-beta.1a", "beta", "2.1.0-beta.1"],
+    ["2.1.0-1", "next", "2.1.0-0"],
+    ["2.2.0-beta.0", "beta", "2.1.0-rc.9"],
+    ["2.0.0", "latest-v2", "2.0.0-rc.1"],
+    // equal: republishing is refused by plan(), and npm itself rejects it
+    ["2.1.0-beta.1", "beta", "2.1.0-beta.1"],
+    // the tag does not exist yet
+    ["1.6.0-beta.1", "beta", ""],
+  ])("allows %s while %s is %j", (version, tag, target) => {
+    expect(() => checkTarget(version, tag, target)).not.toThrow();
   });
 });
 
@@ -264,8 +267,9 @@ describe("CLI", () => {
   beforeAll(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), "release-plan-"));
     fakeNpm = path.join(dir, "npm");
-    // Answers `npm view <pkg> versions --json` and `npm view <pkg> dist-tags.latest`
-    // like the real npm 11/12 CLI, from FAKE_* variables.
+    // Answers `npm view <pkg> versions --json` and `npm view <pkg> dist-tags.<tag>`
+    // like the real npm 11/12 CLI (empty output for a missing tag), from FAKE_*
+    // variables. FAKE_TAGS is a JSON map of the other dist-tags.
     fs.writeFileSync(
       fakeNpm,
       `#!/usr/bin/env node
@@ -278,7 +282,10 @@ if (process.env.FAKE_ERROR) {
 }
 if (args[2] === "versions") process.stdout.write(process.env.FAKE_VERSIONS + "\\n");
 else if (args[2] === "dist-tags.latest") process.stdout.write(process.env.FAKE_LATEST + "\\n");
-else process.exit(2);
+else if (args[2].startsWith("dist-tags.")) {
+  const target = JSON.parse(process.env.FAKE_TAGS || "{}")[args[2].slice(10)];
+  process.stdout.write((target ?? "") + "\\n");
+} else process.exit(2);
 `,
     );
     fs.chmodSync(fakeNpm, 0o755);
@@ -332,6 +339,13 @@ else process.exit(2);
     ]);
   });
 
+  it("does not look up the dist-tag when nothing is published yet", () => {
+    const result = run({ FAKE_ERROR: E404 }, "1.0.0-beta.1");
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("beta");
+    expect(result.calls).toEqual([["view", NAME, "versions", "--json"]]);
+  });
+
   it.each([
     ["ETIMEDOUT", "npm error code ETIMEDOUT\nnpm error network timeout\n"],
     [
@@ -360,6 +374,7 @@ else process.exit(2);
     expect(result.calls).toEqual([
       ["view", "@absmartly/angular-sdk", "versions", "--json"],
       ["view", "@absmartly/angular-sdk", "dist-tags.latest"],
+      ["view", "@absmartly/angular-sdk", "dist-tags.latest-v1"],
     ]);
   });
 
@@ -395,6 +410,67 @@ else process.exit(2);
     );
     expect(result.status).toBe(0);
     expect(result.stdout).toBe(tag);
+  });
+
+  it("asks npm for the target of a prerelease dist-tag", () => {
+    const result = run(
+      {
+        FAKE_VERSIONS: '["1.2.3", "1.3.0-beta.1"]',
+        FAKE_LATEST: "1.2.3",
+        FAKE_TAGS: '{"beta": "1.3.0-beta.1"}',
+      },
+      "1.3.0-beta.2",
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("beta");
+    expect(result.calls).toEqual([
+      ["view", NAME, "versions", "--json"],
+      ["view", NAME, "dist-tags.latest"],
+      ["view", NAME, "dist-tags.beta"],
+    ]);
+  });
+
+  it("refuses to move a dist-tag that points at another channel's version backwards", () => {
+    // beta was pointed at an rc with npm dist-tag add
+    const result = run(
+      {
+        FAKE_VERSIONS: '["2.0.0", "2.2.0-rc.1"]',
+        FAKE_LATEST: "2.0.0",
+        FAKE_TAGS: '{"beta": "2.2.0-rc.1", "rc": "2.2.0-rc.1"}',
+      },
+      "2.1.0-beta.1",
+    );
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain(
+      "::error::2.1.0-beta.1 is lower than 2.2.0-rc.1, the current beta on npm: refusing to move beta backwards",
+    );
+  });
+
+  it("allows a prerelease when a higher one of its channel sits under another tag", () => {
+    // 2.2.0-beta.1 was published under next; beta does not exist
+    const result = run(
+      {
+        FAKE_VERSIONS: '["2.0.0", "2.2.0-beta.1"]',
+        FAKE_LATEST: "2.0.0",
+        FAKE_TAGS: '{"next": "2.2.0-beta.1"}',
+      },
+      "2.1.0-beta.1",
+    );
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe("beta");
+  });
+
+  it("fails clearly when npm view prints no versions (no latest dist-tag)", () => {
+    const result = run(
+      { FAKE_VERSIONS: "", FAKE_TAGS: '{"beta": "1.0.0-beta.1"}' },
+      "1.0.0-beta.2",
+    );
+    expect(result.status).toBe(1);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain(
+      "::error::npm view @absmartly/angular-sdk versions printed nothing: the package has no latest dist-tag",
+    );
   });
 
   it("refuses a tag that does not match package.json", () => {
