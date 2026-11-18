@@ -182,7 +182,6 @@ describe("checkTarget", () => {
     ["2.0.0", "latest-v2", "2.0.0-rc.1"],
     // equal: republishing is refused by plan(), and npm itself rejects it
     ["2.1.0-beta.1", "beta", "2.1.0-beta.1"],
-    // the tag does not exist yet
     ["1.6.0-beta.1", "beta", ""],
   ])("allows %s while %s is %j", (version, tag, target) => {
     expect(() => checkTarget(version, tag, target)).not.toThrow();
@@ -431,7 +430,6 @@ else if (args[2].startsWith("dist-tags.")) {
   });
 
   it("refuses to move a dist-tag that points at another channel's version backwards", () => {
-    // beta was pointed at an rc with npm dist-tag add
     const result = run(
       {
         FAKE_VERSIONS: '["2.0.0", "2.2.0-rc.1"]',
@@ -448,7 +446,6 @@ else if (args[2].startsWith("dist-tags.")) {
   });
 
   it("allows a prerelease when a higher one of its channel sits under another tag", () => {
-    // 2.2.0-beta.1 was published under next; beta does not exist
     const result = run(
       {
         FAKE_VERSIONS: '["2.0.0", "2.2.0-beta.1"]',

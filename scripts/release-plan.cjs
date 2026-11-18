@@ -221,7 +221,6 @@ if (require.main === module) {
       latest,
       versions,
     });
-    // latest itself is already checked against the version by plan().
     if (tag !== "latest" && versions.length > 0) {
       checkTarget(pkg.version, tag, tagTarget(npm, pkg.name, tag));
     }
