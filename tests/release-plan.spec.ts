@@ -40,10 +40,8 @@ describe("package.json", () => {
 
 describe("distTag", () => {
   it.each([
-    // first publish: nothing on npm yet
     ["1.0.0", undefined, "latest"],
     ["1.0.0", "", "latest"],
-    // newer than latest
     ["1.0.1", "1.0.0", "latest"],
     ["1.1.0", "1.0.9", "latest"],
     ["2.0.0", "1.9.9", "latest"],
@@ -51,7 +49,6 @@ describe("distTag", () => {
     ["1.0.0", "1.0.0", "latest"],
     // a stable release outranks a prerelease latest of the same core
     ["2.0.0", "2.0.0-beta.1", "latest"],
-    // lower major than latest: never becomes latest
     ["1.0.1", "2.0.0", "latest-v1"],
     ["1.99.99", "2.0.0", "latest-v1"],
     ["0.9.0", "1.0.0", "latest-v0"],
@@ -68,7 +65,6 @@ describe("distTag", () => {
     ],
     // build metadata is ignored
     ["1.0.1+build.5", "1.0.0", "latest"],
-    // prereleases never become latest
     ["1.1.0-beta.1", "1.0.0", "beta"],
     ["1.1.0-alpha", undefined, "alpha"],
     ["2.0.0-rc.2", "1.0.0", "rc"],
@@ -104,7 +100,6 @@ describe("distTag", () => {
   });
 
   it.each([
-    // a newer stable 1.x is already out: latest-v1 would move backwards
     ["1.5.0", "2.0.0", ["1.6.0", "2.0.0"], "1.6.0"],
     ["1.5.0", "2.0.0", ["1.5.1", "2.0.0"], "1.5.1"],
     ["1.9.0", "2.0.0", ["1.10.0", "2.0.0"], "1.10.0"],
@@ -118,7 +113,6 @@ describe("distTag", () => {
   );
 
   it.each([
-    // older 1.x, other majors and 1.x prereleases do not block a 1.x backport
     [
       "1.5.0",
       "2.0.0",
@@ -204,7 +198,6 @@ describe("plan", () => {
   });
 
   it("refuses an already published version on a dry run too", () => {
-    // npm publish --dry-run fails on it as well
     expect(() =>
       plan({ ...base, dryRun: true, latest: "1.2.3", versions: ["1.2.3"] }),
     ).toThrow("version 1.2.3 is already published on npm");

@@ -255,8 +255,6 @@ describe("publish.yml", () => {
       dir = fs.mkdtempSync(path.join(os.tmpdir(), "publish-workflow-"));
       fs.mkdirSync(path.join(dir, "bin"));
       fs.mkdirSync(path.join(dir, "scripts"));
-      // npm stub: logs its arguments, answers --version from FAKE_NPM_VERSION,
-      // and fails `install` when FAKE_NPM_INSTALL_FAILS is set.
       fs.writeFileSync(
         path.join(dir, "bin", "npm"),
         `#!/usr/bin/env node
@@ -266,7 +264,6 @@ if (process.argv[2] === "install" && process.env.FAKE_NPM_INSTALL_FAILS) process
 `,
       );
       fs.chmodSync(path.join(dir, "bin", "npm"), 0o755);
-      // Planner stub: prints FAKE_DIST_TAG, or fails when it is unset.
       fs.writeFileSync(
         path.join(dir, "scripts", "release-plan.cjs"),
         `if (!process.env.FAKE_DIST_TAG) { console.error("::error::refused"); process.exit(1); }
@@ -277,7 +274,6 @@ process.stdout.write(process.env.FAKE_DIST_TAG);
 
     afterAll(() => fs.rmSync(dir, { recursive: true, force: true }));
 
-    // Resolves the ${{ ... }} expressions this workflow's steps use.
     function resolve(value: string, outputs: Record<string, string>) {
       return value.replace(/\$\{\{\s*([^}]+?)\s*\}\}/g, (_, expr) => {
         const m = /^steps\.plan\.outputs\.(.+)$/.exec(expr);
