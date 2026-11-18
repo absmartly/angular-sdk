@@ -151,6 +151,7 @@ describe("distTag", () => {
     ["2.1.0-beta", ["2.0.0", "2.1.0-beta.1"], "2.1.0-beta.1", "beta"],
     ["2.1.0-beta.1", ["2.0.0", "2.1.0-beta.x"], "2.1.0-beta.x", "beta"],
     ["2.1.0-0", ["2.0.0", "2.1.0-1"], "2.1.0-1", "next"],
+    ["2.1.0-beta.1", ["2.0.0", "2.1.0-beta.1a"], "2.1.0-beta.1a", "beta"],
     ["2.1.0-x", ["2.0.0", "2.1.0-y"], "2.1.0-y", "next"],
   ])(
     "refuses prerelease %s when %j has the newer %s under %s",
@@ -168,6 +169,7 @@ describe("distTag", () => {
     ["2.1.0-beta.x", ["2.0.0", "2.1.0-beta.1"], "beta"],
     ["2.2.0-beta.0", ["2.0.0", "2.1.0-beta.3"], "beta"],
     ["2.1.0-1", ["2.0.0", "2.1.0-0"], "next"],
+    ["2.1.0-beta.1a", ["2.0.0", "2.1.0-beta.1"], "beta"],
     // other dist-tags, stable releases and invalid entries do not block it
     [
       "1.6.0-beta.1",
