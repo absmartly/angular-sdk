@@ -447,6 +447,21 @@ provideABSmartly({
 | `goal`     | `Context.track()` method succeeds                   | `GoalAchievement` enqueued for publishing |
 | `finalize` | `Context.finalize()` method succeeds the first time | `null`                                    |
 
+## Releasing
+
+Releases are published to npm by `.github/workflows/publish.yml` when a `v*` tag is pushed. The tag must equal the `package.json` version (`v1.0.0` for `1.0.0`), otherwise the workflow fails before publishing.
+
+1. Bump `version` in `package.json` (and `package-lock.json`) in a PR and merge it.
+2. Tag the merge commit and push the tag: `git tag v1.0.0 && git push origin v1.0.0`.
+
+The workflow runs the format check, tests and build, checks that the version is not on npm yet, then runs `npm publish --provenance --access public`. A release whose major is lower than the current `latest` on npm is published under `latest-v<major>` (for example `latest-v1`) so it never becomes `latest`. Prereleases go to `alpha`, `beta`, `rc` or `next`. A release lower than the version its dist-tag points to on npm now is refused. A release lower than `latest` in the same major, or lower than a release already published under its `latest-v<major>`, is refused.
+
+Releases run one at a time, never in parallel. Tags pushed together are queued in roughly the order their runs start, which GitHub does not guarantee, so push tags one at a time when order matters. A release that runs after a higher one in the same major is refused rather than published. The release check reads npm metadata that the registry may cache for up to five minutes, so wait a few minutes between releases of different majors (for example a `2.0.0` and a `1.x` patch).
+
+To rehearse a release, run the workflow manually (Actions, Publish, Run workflow) with `dry_run` checked (the default). It runs every step and ends with `npm publish --dry-run`. Run from a `v*` tag, it also checks the tag against the version. Run from a branch, there is no tag to check. A dry run never receives `NPM_TOKEN`, so it does not exercise the token fallback, and it fails if the version is already on npm.
+
+Authentication uses npm Trusted Publishing (OIDC) from the `npm` environment. Until a trusted publisher is configured on npmjs.com, which npm only allows once the package exists, the workflow falls back to the `NPM_TOKEN` secret.
+
 ## About A/B Smartly
 
 **A/B Smartly** is the leading provider of state-of-the-art, on-premises, full-stack experimentation platforms for engineering and product teams that want to confidently deploy features as fast as they can develop them.

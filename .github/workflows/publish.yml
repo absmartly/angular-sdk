@@ -1,0 +1,122 @@
+# Publishes @absmartly/angular-sdk to npm when a v* tag is pushed.
+#
+# Authentication, in order:
+#   1. npm Trusted Publishing (OIDC). npm >= 11.5.1 exchanges the job's GitHub
+#      OIDC token (id-token: write) for a short-lived publish token. This needs a
+#      trusted publisher on npmjs.com: GitHub Actions, absmartly/angular-sdk,
+#      workflow publish.yml, environment npm.
+#   2. Fallback: the NPM_TOKEN secret, exposed as NODE_AUTH_TOKEN. npm only lets
+#      you add a trusted publisher to a package that already exists, and this
+#      package has never been published, so the first release authenticates with
+#      the token. npm tries OIDC first and only uses the token when OIDC is not
+#      configured. Once trusted publishing is set up, the token can be removed
+#      (delete the NODE_AUTH_TOKEN line below and the secret).
+#
+# Provenance is generated with the same OIDC token either way.
+#
+# workflow_dispatch with dry_run (default true) runs every step, including
+# `npm publish --dry-run`, without publishing.
+
+name: Publish
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run every step except the actual npm publish"
+        type: boolean
+        default: true
+
+# One release at a time for the whole package, not per tag: two tags planned in
+# parallel (1.1.0 and 2.0.0 while 1.0.0 is latest) would both choose latest. Queued
+# runs all wait (queue: max) instead of replacing each other, roughly first in,
+# first out (GitHub does not guarantee the order), and a running publish is never
+# cancelled.
+concurrency:
+  group: publish-npm
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      # push events have no inputs, so this is false for tag pushes.
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          # No dependency cache in the release job: a cache written by another
+          # workflow run must not feed into a published artifact.
+
+      - name: Upgrade npm for trusted publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install -g npm@latest
+          NPM_VERSION=$(npm --version)
+          echo "npm ${NPM_VERSION}"
+          # Trusted publishing (OIDC) needs npm >= 11.5.1.
+          # shellcheck disable=SC2016 # single quotes: the JS is not shell-expanded
+          node -e '
+            const [a, b, c] = process.argv[1].split(".").map(Number);
+            const ok = a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1)));
+            if (!ok) { console.error(`npm ${process.argv[1]} is older than 11.5.1`); process.exit(1); }
+          ' "$NPM_VERSION"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Check formatting
+        run: npm run check-format
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Check tag, version and npm dist-tag
+        id: plan
+        shell: bash
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        # Fails unless the tag is v<package.json version> and that version is not
+        # on npm yet. Prints the dist-tag: latest-v<major> when this release must
+        # not become latest (a 1.x patch while 2.x is latest), alpha/beta/rc/next
+        # for prereleases, latest otherwise. See scripts/release-plan.cjs.
+        run: |
+          set -euo pipefail
+          DIST_TAG=$(node scripts/release-plan.cjs)
+          echo "dist-tag=${DIST_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish to npm (dry run)
+        if: env.DRY_RUN == 'true'
+        env:
+          DIST_TAG: ${{ steps.plan.outputs.dist-tag }}
+        run: npm publish --provenance --access public --tag "$DIST_TAG" --dry-run
+
+      - name: Publish to npm
+        if: env.DRY_RUN != 'true'
+        env:
+          DIST_TAG: ${{ steps.plan.outputs.dist-tag }}
+          # Fallback only: used when trusted publishing (OIDC) is not configured,
+          # e.g. the first release of this package. See the header comment.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public --tag "$DIST_TAG"

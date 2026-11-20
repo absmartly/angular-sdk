@@ -1,0 +1,5 @@
+paths:
+  .github/workflows/publish.yml:
+    ignore:
+      # concurrency.queue (GitHub, 2026-05) is not known to actionlint 1.7.12 yet.
+      - 'unexpected key "queue" for "concurrency" section'
